@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import spawn from 'cross-spawn';
 
 export class CliError extends Error {
   constructor(message: string, public readonly details = '', public readonly exitCode: number | null = null) {
@@ -26,6 +26,7 @@ interface CacheEntry {
 
 /** Each `sf` invocation boots a fresh Node runtime, so unbounded fan-out starves the machine. */
 const MAX_CONCURRENT = Math.max(1, Number(process.env.SF_CONSOLE_MAX_CLI) || 4);
+const SF_EXECUTABLE = 'sf';
 
 export class CliRunner {
   private active = 0;
@@ -93,7 +94,7 @@ export class CliRunner {
   private run(args: string[], options: ExecuteOptions): Promise<any> {
     const timeoutMs = options.timeoutMs ?? 120_000;
     return new Promise<any>((resolve, reject) => {
-      const child = spawn('sf', [...args, '--json'], {
+      const child = spawn(SF_EXECUTABLE, [...args, '--json'], {
         shell: false,
         cwd: options.cwd,
         env: { ...process.env, SF_DISABLE_TELEMETRY: 'true' },
@@ -153,7 +154,7 @@ export class CliRunner {
 
   async version() {
     return await new Promise<string>((resolve, reject) => {
-      const child = spawn('sf', ['--version'], { shell: false, env: { ...process.env, SF_DISABLE_TELEMETRY: 'true' } });
+      const child = spawn(SF_EXECUTABLE, ['--version'], { shell: false, env: { ...process.env, SF_DISABLE_TELEMETRY: 'true' } });
       let output = '';
       let error = '';
       child.stdout.on('data', (d) => { output += d; });

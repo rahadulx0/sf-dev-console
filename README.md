@@ -83,6 +83,18 @@ Desktop data is stored in:
 
 The current DMG is Apple Silicon and unsigned. On first launch, right-click the app and choose **Open** if Gatekeeper blocks it. Public distribution without that warning requires an Apple Developer ID Application certificate and Apple notarization.
 
+## Windows desktop application
+
+Build the 64-bit NSIS installer on Windows with:
+
+```bash
+npm run dist:windows
+```
+
+The installer is written to `release/SF-Dev-Console-<version>-x64.exe`. Salesforce CLI must be installed separately on the Windows device. An unsigned installer can trigger Microsoft Defender SmartScreen; trusted public distribution requires a Windows code-signing certificate.
+
+For releases, the included GitHub Actions workflow builds the DMG on macOS and the `.exe` on Windows, then attaches both installers and their SHA-256 checksums to the same GitHub Release.
+
 ## Device-local storage
 
 By default, runtime files are stored under:

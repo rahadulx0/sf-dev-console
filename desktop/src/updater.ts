@@ -21,7 +21,7 @@ export type UpdateState = {
 };
 
 let release: Release | undefined;
-let dmgPath = '';
+let updatePath = '';
 let state: UpdateState = { status: 'idle', currentVersion: app.getVersion() };
 
 function publish(next: Partial<UpdateState>) {
@@ -42,10 +42,21 @@ function newer(candidate: string, current: string) {
   return false;
 }
 
-function matchingDmg(assets: ReleaseAsset[]) {
+function matchingAsset(assets: ReleaseAsset[]) {
   const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-  return assets.find(asset => asset.name.toLowerCase().endsWith('.dmg') && asset.name.toLowerCase().includes(arch))
-    || assets.find(asset => asset.name.toLowerCase().endsWith('.dmg') && !/(arm64|x64|intel)/i.test(asset.name));
+  if (process.platform === 'darwin') {
+    return assets.find(asset => asset.name.toLowerCase().endsWith('.dmg') && asset.name.toLowerCase().includes(arch))
+      || assets.find(asset => asset.name.toLowerCase().endsWith('.dmg') && !/(arm64|x64|intel)/i.test(asset.name));
+  }
+  if (process.platform === 'win32') {
+    return assets.find(asset => asset.name.toLowerCase().endsWith('.exe') && asset.name.toLowerCase().includes(arch))
+      || assets.find(asset => asset.name.toLowerCase().endsWith('.exe') && !/(arm64|x64|ia32)/i.test(asset.name));
+  }
+  return undefined;
+}
+
+function platformArtifactName() {
+  return process.platform === 'win32' ? 'Windows installer (.exe)' : 'macOS installer (.dmg)';
 }
 
 async function check() {
@@ -57,6 +68,15 @@ async function check() {
     if (!response.ok) throw new Error(response.status === 404 ? 'No published GitHub release was found.' : `GitHub returned ${response.status}.`);
     release = await response.json() as Release;
     const available = newer(release.tag_name, app.getVersion());
+    if (available && !matchingAsset(release.assets)) {
+      return publish({
+        status: 'error',
+        latestVersion: release.tag_name.replace(/^v/i, ''),
+        releaseName: release.name || release.tag_name,
+        releaseNotes: release.body || '',
+        message: `The latest release does not contain a compatible ${platformArtifactName()}.`,
+      });
+    }
     return publish({
       status: available ? 'available' : 'current',
       latestVersion: release.tag_name.replace(/^v/i, ''),
@@ -77,8 +97,8 @@ async function sha256(file: string) {
 async function download() {
   if (!release) await check();
   if (!release || state.status === 'error') return state;
-  const asset = matchingDmg(release.assets);
-  if (!asset) return publish({ status: 'error', message: 'This release does not contain a macOS DMG.' });
+  const asset = matchingAsset(release.assets);
+  if (!asset) return publish({ status: 'error', message: `This release does not contain a compatible ${platformArtifactName()}.` });
   try {
     publish({ status: 'downloading', progress: 0, message: `Downloading ${asset.name}…` });
     const response = await fetch(asset.browser_download_url, { headers: { 'User-Agent': `${REPO}/${app.getVersion()}` } });
@@ -94,8 +114,8 @@ async function download() {
     }
     const directory = path.join(app.getPath('userData'), 'updates');
     await mkdir(directory, { recursive: true });
-    dmgPath = path.join(directory, asset.name);
-    await writeFile(dmgPath, Buffer.concat(chunks));
+    updatePath = path.join(directory, asset.name);
+    await writeFile(updatePath, Buffer.concat(chunks));
 
     const checksumAsset = release.assets.find(item => item.name === `${asset.name}.sha256` || item.name === 'SHA256SUMS');
     if (checksumAsset) {
@@ -104,7 +124,7 @@ async function download() {
       const checksumText = await checksumResponse.text();
       const expected = checksumText.match(new RegExp(`([a-fA-F0-9]{64})\\s+[*]?${asset.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))?.[1]
         || checksumText.trim().match(/^[a-fA-F0-9]{64}/)?.[0];
-      if (!expected || (await sha256(dmgPath)).toLowerCase() !== expected.toLowerCase()) throw new Error('The downloaded update failed checksum verification.');
+      if (!expected || (await sha256(updatePath)).toLowerCase() !== expected.toLowerCase()) throw new Error('The downloaded update failed checksum verification.');
     }
     return publish({ status: 'ready', progress: 100, message: 'Update downloaded and ready to install.' });
   } catch (error) {
@@ -115,17 +135,44 @@ async function download() {
 function quote(value: string) { return `'${value.replaceAll("'", "'\\''")}'`; }
 
 async function install() {
-  if (!dmgPath || state.status !== 'ready') throw new Error('Download the update before installing it.');
+  if (!updatePath || state.status !== 'ready') throw new Error('Download the update before installing it.');
+  if (process.platform === 'win32') return installWindows();
+  if (process.platform !== 'darwin') throw new Error('Automatic installation is not supported on this platform.');
+  return installMac();
+}
+
+async function installMac() {
   const actualHelperDir = path.join(os.tmpdir(), `${REPO}-installer-${process.pid}`);
   await mkdir(actualHelperDir, { recursive: true });
   const scriptPath = path.join(actualHelperDir, 'install-update.sh');
   const mountPath = path.join(actualHelperDir, 'mounted');
   const target = '/Applications/SF Dev Console.app';
-  const command = `set -e\nMOUNT=${quote(mountPath)}\nDMG=${quote(dmgPath)}\nTARGET=${quote(target)}\nmkdir -p "$MOUNT"\ncleanup() { hdiutil detach "$MOUNT" -quiet >/dev/null 2>&1 || true; }\ntrap cleanup EXIT\nhdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" -quiet\nSOURCE=$(find "$MOUNT" -maxdepth 1 -name 'SF Dev Console.app' -print -quit)\n[ -n "$SOURCE" ] || exit 2\n/usr/bin/osascript - "$SOURCE" "$TARGET" <<'APPLESCRIPT'\non run argv\n  set sourcePath to item 1 of argv\n  set targetPath to item 2 of argv\n  set backupPath to targetPath & ".update-backup"\n  set installCommand to "/bin/rm -rf " & quoted form of backupPath & "; if [ -e " & quoted form of targetPath & " ]; then /bin/mv " & quoted form of targetPath & " " & quoted form of backupPath & "; fi; if /usr/bin/ditto " & quoted form of sourcePath & " " & quoted form of targetPath & "; then /bin/rm -rf " & quoted form of backupPath & "; else /bin/rm -rf " & quoted form of targetPath & "; if [ -e " & quoted form of backupPath & " ]; then /bin/mv " & quoted form of backupPath & " " & quoted form of targetPath & "; fi; exit 1; fi"\n  do shell script installCommand with administrator privileges\nend run\nAPPLESCRIPT\nopen "$TARGET"\n`;
+  const command = `set -e\nMOUNT=${quote(mountPath)}\nDMG=${quote(updatePath)}\nTARGET=${quote(target)}\nmkdir -p "$MOUNT"\ncleanup() { hdiutil detach "$MOUNT" -quiet >/dev/null 2>&1 || true; }\ntrap cleanup EXIT\nhdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" -quiet\nSOURCE=$(find "$MOUNT" -maxdepth 1 -name 'SF Dev Console.app' -print -quit)\n[ -n "$SOURCE" ] || exit 2\n/usr/bin/osascript - "$SOURCE" "$TARGET" <<'APPLESCRIPT'\non run argv\n  set sourcePath to item 1 of argv\n  set targetPath to item 2 of argv\n  set backupPath to targetPath & ".update-backup"\n  set installCommand to "/bin/rm -rf " & quoted form of backupPath & "; if [ -e " & quoted form of targetPath & " ]; then /bin/mv " & quoted form of targetPath & " " & quoted form of backupPath & "; fi; if /usr/bin/ditto " & quoted form of sourcePath & " " & quoted form of targetPath & "; then /bin/rm -rf " & quoted form of backupPath & "; else /bin/rm -rf " & quoted form of targetPath & "; if [ -e " & quoted form of backupPath & " ]; then /bin/mv " & quoted form of backupPath & " " & quoted form of targetPath & "; fi; exit 1; fi"\n  do shell script installCommand with administrator privileges\nend run\nAPPLESCRIPT\nopen "$TARGET"\n`;
   await writeFile(scriptPath, command, { mode: 0o700 });
   await chmod(scriptPath, 0o700);
   publish({ status: 'installing', message: 'Installing update and restarting…' });
   const child = spawn('/bin/zsh', [scriptPath], { detached: true, stdio: 'ignore' });
+  child.unref();
+  setTimeout(() => app.quit(), 400);
+}
+
+function powershellQuote(value: string) { return `'${value.replaceAll("'", "''")}'`; }
+
+async function installWindows() {
+  const helperDir = path.join(os.tmpdir(), `${REPO}-installer-${process.pid}`);
+  await mkdir(helperDir, { recursive: true });
+  const scriptPath = path.join(helperDir, 'install-update.ps1');
+  // NSIS remembers the user's chosen install directory; the running executable is the
+  // reliable relaunch path even when they didn't use the default LocalAppData location.
+  const installedExe = process.execPath;
+  const command = `$parentProcessId = ${process.pid}\nwhile (Get-Process -Id $parentProcessId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 250 }\n$installer = Start-Process -FilePath ${powershellQuote(updatePath)} -ArgumentList '/S' -Wait -PassThru\nif ($installer.ExitCode -ne 0) { exit $installer.ExitCode }\nif (Test-Path ${powershellQuote(installedExe)}) { Start-Process -FilePath ${powershellQuote(installedExe)} }\n`;
+  await writeFile(scriptPath, command, 'utf8');
+  publish({ status: 'installing', message: 'Installing update and restarting…' });
+  const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
   child.unref();
   setTimeout(() => app.quit(), 400);
 }

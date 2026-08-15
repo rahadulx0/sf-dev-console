@@ -8,15 +8,22 @@ import { registerUpdater } from './updater';
 let mainWindow: BrowserWindow | null = null;
 
 function enrichPath() {
-  const candidates = [
-    path.join(os.homedir(), '.local', 'bin'),
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    '/usr/bin',
-    '/bin',
-    '/usr/sbin',
-    '/sbin',
-  ];
+  const candidates = process.platform === 'win32'
+    ? [
+        path.join(process.env.LOCALAPPDATA || '', 'sf', 'client', 'bin'),
+        path.join(process.env.APPDATA || '', 'npm'),
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'sf', 'bin'),
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Salesforce CLI', 'bin'),
+      ]
+    : [
+        path.join(os.homedir(), '.local', 'bin'),
+        '/opt/homebrew/bin',
+        '/usr/local/bin',
+        '/usr/bin',
+        '/bin',
+        '/usr/sbin',
+        '/sbin',
+      ];
   const existing = (process.env.PATH || '').split(path.delimiter);
   process.env.PATH = [...new Set([...candidates, ...existing])].join(path.delimiter);
 }

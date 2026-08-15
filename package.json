@@ -5,10 +5,14 @@
   "description": "A local desktop GUI for Salesforce CLI developer workflows",
   "main": "desktop/dist/main.js",
   "author": "Rahadul",
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "dependencies": {
     "@fastify/cors": "^11.1.0",
     "@fastify/static": "^8.2.0",
+    "cross-spawn": "^7.0.6",
     "fastify": "^5.5.0"
   },
   "scripts": {
@@ -17,6 +21,7 @@
     "build:desktop": "tsc -p desktop/tsconfig.json",
     "build:icon": "electron desktop/scripts/generate-icon.mjs",
     "dist:mac": "npm run build && electron-builder --mac dmg --arm64",
+    "dist:windows": "npm run build && electron-builder --win nsis --x64",
     "start": "npm run start -w @sf-console/server",
     "typecheck": "npm run typecheck -w @sf-console/server && npm run typecheck -w @sf-console/web",
     "test": "npm run test -w @sf-console/server"
@@ -27,7 +32,9 @@
     "electron-builder": "^26.0.12",
     "typescript": "^5.9.2"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "build": {
     "appId": "com.rahadul.sfdevconsole",
     "productName": "SF Dev Console",
@@ -50,16 +57,55 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "desktop/assets/icon.icns",
-      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },
+    "win": {
+      "icon": "desktop/assets/icon.svg",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SF Dev Console",
+      "deleteAppDataOnUninstall": false
+    },
     "dmg": {
       "title": "SF Dev Console",
-      "window": { "width": 600, "height": 400 },
+      "window": {
+        "width": 600,
+        "height": 400
+      },
       "contents": [
-        { "x": 160, "y": 190, "type": "file" },
-        { "x": 440, "y": 190, "type": "link", "path": "/Applications" }
+        {
+          "x": 160,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 440,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "artifactName": "SF-Dev-Console-${version}-${arch}.${ext}"
