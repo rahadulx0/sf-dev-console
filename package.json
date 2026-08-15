@@ -15,6 +15,7 @@
     "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @sf-console/server\" \"npm run dev -w @sf-console/web\"",
     "build": "npm run build -w @sf-console/server && npm run build -w @sf-console/web && npm run build:desktop",
     "build:desktop": "tsc -p desktop/tsconfig.json",
+    "build:icon": "electron desktop/scripts/generate-icon.mjs",
     "dist:mac": "npm run build && electron-builder --mac dmg --arm64",
     "start": "npm run start -w @sf-console/server",
     "typecheck": "npm run typecheck -w @sf-console/server && npm run typecheck -w @sf-console/web",

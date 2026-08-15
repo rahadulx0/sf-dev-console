@@ -28,6 +28,15 @@ A local, professional web interface for Salesforce CLI workflows. The Salesforce
 - Full-width workspace with a persistent collapsible desktop navigation rail
 - Thin bottom status bar for page, org, connection, and refresh context
 
+## Interface
+
+- Dark and light themes; the operating system preference is used on first run and the choice is remembered
+- `⌘K` / `Ctrl+K` command palette for pages, org switching, and common actions
+- Hash routing, so back, forward, refresh, and per-object links (`#/objects/Account`) all work
+- Cached org reads with visible data age and a per-view refresh, instead of re-running the CLI on every page change
+- A job strip that shows running retrievals and deployments with elapsed time
+- Non-blocking toasts in place of modal browser alerts
+
 The in-app **Capabilities** screen shows the complete requested MVP checklist. Detailed implementation and verification evidence is recorded in [FEATURE_MATRIX.md](./FEATURE_MATRIX.md).
 
 ## Requirements
@@ -104,9 +113,33 @@ Anonymous Apex, deployments, and other developer operations can change org data.
 ## Project layout
 
 ```text
-client/   React, TypeScript, Vite, responsive application UI
-server/   Fastify API, CliRunner, manifests, jobs, JSON persistence
+client/src/
+  app/        shell, hash router, theme, command palette, job strip
+  features/   one directory per page (metadata, query, deploy, …)
+  ui/         shared primitives (panel, table, modal, toast, virtual list)
+  lib/        api client, resource cache, fuzzy search, formatting
+  styles/     tokens.css, base.css, components.css, shell.css, features.css
+server/src/
+  routes/     orgs, metadata, data, apex, deploy, retrievals
+  state/      in-memory state with debounced atomic writes
+  cli/        CliRunner with a concurrency pool and read cache
 ```
+
+Each page is a lazily loaded chunk, so the initial download is the shell plus the current page.
+
+## Performance notes
+
+Every `sf` invocation starts a new Node runtime and costs roughly one to three seconds, so
+repeated reads are the dominant cost in the interface.
+
+- Read-only CLI results are cached on both sides. Concurrent requests for the same command
+  share one child process, and a view shows how old its data is with a refresh control.
+- Concurrent `sf` processes are capped (default 4, override with `SF_CONSOLE_MAX_CLI`).
+  Record counting across 25 objects no longer starts 25 runtimes at once.
+- Read requests are cancelled when the client navigates away, which terminates the child
+  process rather than letting it run unwatched. Mutating operations always run to completion.
+- Application state is held in memory and flushed atomically after a short debounce, instead
+  of a full read-modify-write of `state.json` on every API response.
 
 Useful checks:
 
