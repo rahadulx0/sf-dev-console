@@ -280,15 +280,12 @@ function App() {
               <Overview org={org} go={setPage} count={selectedCount} />
             )}{" "}
             {page === "metadata" && (
-              <>
-                <Metadata
-                  orgId={id}
-                  selections={selections}
-                  setSelections={setSelections}
-                  setError={setError}
-                />
-                <ManifestTools orgId={id} setError={setError} />
-              </>
+              <Metadata
+                orgId={id}
+                selections={selections}
+                setSelections={setSelections}
+                setError={setError}
+              />
             )}{" "}
             {page === "objects" && (
               <ObjectExplorer orgId={id} setError={setError} />
@@ -1059,61 +1056,72 @@ function Metadata({
             })
           )}
         </section>
-        <aside className="panel basket">
-          <div className="section-head">
-            <div>
-              <h3>Selection</h3>
-              <p>Ready for a manifest.</p>
-            </div>
-            <strong>
-              {selections.reduce((n, s) => n + s.members.length, 0)}
-            </strong>
-          </div>
-          {selections.length ? (
-            selections.map((s) => (
-              <div className="basket-row" key={s.type}>
-                <span>
-                  <b>{s.type}</b>
-                  <small>
-                    {s.members.includes("*")
-                      ? "All components"
-                      : `${s.members.length} selected`}
-                  </small>
-                </span>
-                <button
-                  className="icon"
-                  onClick={() =>
-                    setSelections(selections.filter((x) => x.type !== s.type))
-                  }
-                >
-                  <X />
-                </button>
+        <aside className="metadata-rail">
+          <section className="panel basket">
+            <div className="section-head">
+              <div>
+                <h3>Selection</h3>
+                <p>Ready for a manifest.</p>
               </div>
-            ))
-          ) : (
-            <Empty
-              icon={PackageCheck}
-              title="Nothing selected"
-              text="Choose metadata types or individual components."
-            />
-          )}
-          <div className="basket-actions">
-            <button
-              className="secondary"
-              disabled={!selections.length}
-              onClick={showPreview}
-            >
-              Preview package.xml
-            </button>
-            <button
-              className="primary"
-              disabled={!selections.length || retrieving}
-              onClick={retrieve}
-            >
-              {retrieving ? <LoaderCircle className="spin" /> : <FileArchive />}{" "}
-              Retrieve metadata
-            </button>
-          </div>
+              <strong>
+                {selections.reduce((n, s) => n + s.members.length, 0)}
+              </strong>
+            </div>
+            <div className="basket-list">
+              {selections.length ? (
+                selections.map((s) => (
+                  <div className="basket-row" key={s.type}>
+                    <span>
+                      <b>{s.type}</b>
+                      <small>
+                        {s.members.includes("*")
+                          ? "All components"
+                          : `${s.members.length} selected`}
+                      </small>
+                    </span>
+                    <button
+                      className="icon"
+                      onClick={() =>
+                        setSelections(
+                          selections.filter((x) => x.type !== s.type),
+                        )
+                      }
+                    >
+                      <X />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <Empty
+                  icon={PackageCheck}
+                  title="Nothing selected"
+                  text="Choose metadata types or individual components."
+                />
+              )}
+            </div>
+            <div className="basket-actions">
+              <button
+                className="secondary"
+                disabled={!selections.length}
+                onClick={showPreview}
+              >
+                Preview package.xml
+              </button>
+              <button
+                className="primary"
+                disabled={!selections.length || retrieving}
+                onClick={retrieve}
+              >
+                {retrieving ? (
+                  <LoaderCircle className="spin" />
+                ) : (
+                  <FileArchive />
+                )}{" "}
+                Retrieve metadata
+              </button>
+            </div>
+          </section>
+          <ManifestTools orgId={orgId} setError={setError} compact />
         </aside>
       </div>
       {preview && (
@@ -1378,9 +1386,25 @@ function Query({ orgId, setError }: any) {
       text="Schema-aware field and object suggestions. Press Tab immediately after SELECT to expand all fields for the FROM object."
       action={
         <div className="query-run-actions">
-          <label className="tooling-toggle" title="Run this query through Salesforce Tooling API">
-            <input type="checkbox" checked={tooling} disabled={busy} onChange={(event) => { setTooling(event.target.checked); setResult(undefined); setSuggestions([]); setSelected([]); }} />
-            <span><b>Tooling API</b><small>Off by default</small></span>
+          <label
+            className="tooling-toggle"
+            title="Run this query through Salesforce Tooling API"
+          >
+            <input
+              type="checkbox"
+              checked={tooling}
+              disabled={busy}
+              onChange={(event) => {
+                setTooling(event.target.checked);
+                setResult(undefined);
+                setSuggestions([]);
+                setSelected([]);
+              }}
+            />
+            <span>
+              <b>Tooling API</b>
+              <small>Off by default</small>
+            </span>
           </label>
           <button className="primary" onClick={run} disabled={busy}>
             {busy ? <LoaderCircle className="spin" /> : <Play />} Run query
@@ -1929,7 +1953,7 @@ function Saved({ selections, setSelections }: any) {
     </section>
   );
 }
-function ManifestTools({ orgId, setError }: any) {
+function ManifestTools({ orgId, setError, compact = false }: any) {
   const [manifest, setManifest] = useState<any>();
   const [busy, setBusy] = useState("");
   const [result, setResult] = useState<any>();
@@ -1975,7 +1999,7 @@ function ManifestTools({ orgId, setError }: any) {
     }
   }
   return (
-    <section className="panel manifest-tools">
+    <section className={`panel manifest-tools${compact ? " compact" : ""}`}>
       <div className="section-head">
         <div>
           <h3>Existing package.xml</h3>
@@ -2261,52 +2285,144 @@ const capabilityGroups = [
     description: "Work with Salesforce authorizations stored on this device.",
     icon: Cloud,
     items: [
-      ["Authorized org selector", "List and switch between locally authorized orgs."],
-      ["Browser authorization", "Authorize Production, Developer, or Sandbox orgs."],
-      ["Authorization options", "Set an alias, preferred browser, default org, or Dev Hub."],
-      ["Org information", "Review username, org ID, instance URL, status, and environment."],
-      ["Open Salesforce org", "Launch the selected org directly in the browser."],
-      ["Org limits", "Inspect API and platform capacity reported by Salesforce."],
-      ["Installed packages", "Browse managed and unlocked packages with pagination."],
+      [
+        "Authorized org selector",
+        "List and switch between locally authorized orgs.",
+      ],
+      [
+        "Browser authorization",
+        "Authorize Production, Developer, or Sandbox orgs.",
+      ],
+      [
+        "Authorization options",
+        "Set an alias, preferred browser, default org, or Dev Hub.",
+      ],
+      [
+        "Org information",
+        "Review username, org ID, instance URL, status, and environment.",
+      ],
+      [
+        "Open Salesforce org",
+        "Launch the selected org directly in the browser.",
+      ],
+      [
+        "Org limits",
+        "Inspect API and platform capacity reported by Salesforce.",
+      ],
+      [
+        "Installed packages",
+        "Browse managed and unlocked packages with pagination.",
+      ],
     ],
   },
   {
     title: "Metadata",
-    description: "Discover, select, retrieve, and organize Salesforce metadata.",
+    description:
+      "Discover, select, retrieve, and organize Salesforce metadata.",
     icon: Box,
     items: [
-      ["Metadata type discovery", "Load metadata types supported by the selected org."],
-      ["Component browser", "Expand a metadata type and browse its components."],
-      ["Fuzzy metadata search", "Rank approximate matches across types and loaded components."],
-      ["Multi-select metadata", "Select components individually or select an entire type."],
-      ["Curated selection presets", "Quick-select Apex, frontend, objects, automation, or security."],
-      ["Saved selections", "Save and reuse frequently retrieved component collections."],
-      ["package.xml builder", "Generate a sorted Salesforce manifest from the selection."],
-      ["package.xml upload", "Validate and use an existing local Salesforce manifest."],
-      ["Retrieve preview", "Preview retrieval changes and source conflicts before running."],
-      ["Metadata retrieval", "Retrieve selected components or an uploaded manifest."],
-      ["Metadata ZIP download", "Download completed retrieval output in a portable archive."],
-      ["Retrieval history", "Track local retrieval status, failures, and completed output."],
+      [
+        "Metadata type discovery",
+        "Load metadata types supported by the selected org.",
+      ],
+      [
+        "Component browser",
+        "Expand a metadata type and browse its components.",
+      ],
+      [
+        "Fuzzy metadata search",
+        "Rank approximate matches across types and loaded components.",
+      ],
+      [
+        "Multi-select metadata",
+        "Select components individually or select an entire type.",
+      ],
+      [
+        "Curated selection presets",
+        "Quick-select Apex, frontend, objects, automation, or security.",
+      ],
+      [
+        "Saved selections",
+        "Save and reuse frequently retrieved component collections.",
+      ],
+      [
+        "package.xml builder",
+        "Generate a sorted Salesforce manifest from the selection.",
+      ],
+      [
+        "package.xml upload",
+        "Validate and use an existing local Salesforce manifest.",
+      ],
+      [
+        "Retrieve preview",
+        "Preview retrieval changes and source conflicts before running.",
+      ],
+      [
+        "Metadata retrieval",
+        "Retrieve selected components or an uploaded manifest.",
+      ],
+      [
+        "Metadata ZIP download",
+        "Download completed retrieval output in a portable archive.",
+      ],
+      [
+        "Retrieval history",
+        "Track local retrieval status, failures, and completed output.",
+      ],
     ],
   },
   {
     title: "Data tools",
-    description: "Explore schema and safely inspect or modify Salesforce records.",
+    description:
+      "Explore schema and safely inspect or modify Salesforce records.",
     icon: Database,
     items: [
       ["SOQL query editor", "Execute SOQL through the local Salesforce CLI."],
-      ["Tooling API queries", "Opt in per query to access Tooling API objects and fields."],
-      ["Schema-aware autocomplete", "Suggest objects and fields with fuzzy matching."],
-      ["SELECT field expansion", "Press Tab after SELECT to insert fields for the FROM object."],
-      ["Scalable query results", "Review large result sets in a paginated, scrollable table."],
-      ["Copy for Excel", "Copy all or selected query rows as tab-separated values."],
-      ["Guarded record deletion", "Delete selected query records with exact confirmation."],
+      [
+        "Tooling API queries",
+        "Opt in per query to access Tooling API objects and fields.",
+      ],
+      [
+        "Schema-aware autocomplete",
+        "Suggest objects and fields with fuzzy matching.",
+      ],
+      [
+        "SELECT field expansion",
+        "Press Tab after SELECT to insert fields for the FROM object.",
+      ],
+      [
+        "Scalable query results",
+        "Review large result sets in a paginated, scrollable table.",
+      ],
+      [
+        "Copy for Excel",
+        "Copy all or selected query rows as tab-separated values.",
+      ],
+      [
+        "Guarded record deletion",
+        "Delete selected query records with exact confirmation.",
+      ],
       ["Object explorer", "Browse standard and custom Salesforce objects."],
-      ["Object describe", "Inspect field types and create, update, and nullability properties."],
-      ["Record counts", "Count selected objects and export the results as CSV."],
-      ["Record inspector", "Retrieve an individual record by object and Salesforce ID."],
-      ["Field-level record editing", "Edit updateable fields with schema-appropriate controls."],
-      ["Salesforce validation feedback", "Surface record update and validation errors in the UI."],
+      [
+        "Object describe",
+        "Inspect field types and create, update, and nullability properties.",
+      ],
+      [
+        "Record counts",
+        "Count selected objects and export the results as CSV.",
+      ],
+      [
+        "Record inspector",
+        "Retrieve an individual record by object and Salesforce ID.",
+      ],
+      [
+        "Field-level record editing",
+        "Edit updateable fields with schema-appropriate controls.",
+      ],
+      [
+        "Salesforce validation feedback",
+        "Surface record update and validation errors in the UI.",
+      ],
     ],
   },
   {
@@ -2315,10 +2431,22 @@ const capabilityGroups = [
     icon: Code2,
     items: [
       ["Anonymous Apex", "Execute anonymous Apex entered in the editor."],
-      ["Apex test runner", "Run local, all-org, or specifically selected Apex tests."],
-      ["Code coverage results", "Request and review Apex code coverage with test output."],
-      ["Debug log browser", "List recent Salesforce debug logs with pagination."],
-      ["Debug log viewer", "Download and inspect the full contents of an individual log."],
+      [
+        "Apex test runner",
+        "Run local, all-org, or specifically selected Apex tests.",
+      ],
+      [
+        "Code coverage results",
+        "Request and review Apex code coverage with test output.",
+      ],
+      [
+        "Debug log browser",
+        "List recent Salesforce debug logs with pagination.",
+      ],
+      [
+        "Debug log viewer",
+        "Download and inspect the full contents of an individual log.",
+      ],
     ],
   },
   {
@@ -2326,35 +2454,70 @@ const capabilityGroups = [
     description: "Preview and execute guarded metadata deployment workflows.",
     icon: Rocket,
     items: [
-      ["Deployment preview", "Inspect source changes before modifying the target org."],
-      ["Deployment validation", "Run a check-only deployment with Salesforce tests."],
-      ["Asynchronous deployment", "Start a protected source deployment from a local project."],
-      ["Deployment reporting", "Check deployment status and Salesforce result details by job ID."],
+      [
+        "Deployment preview",
+        "Inspect source changes before modifying the target org.",
+      ],
+      [
+        "Deployment validation",
+        "Run a check-only deployment with Salesforce tests.",
+      ],
+      [
+        "Asynchronous deployment",
+        "Start a protected source deployment from a local project.",
+      ],
+      [
+        "Deployment reporting",
+        "Check deployment status and Salesforce result details by job ID.",
+      ],
       ["Quick deploy", "Deploy a previously successful validation by job ID."],
       ["Deployment cancellation", "Cancel an active deployment request."],
-      ["Destructive-action guards", "Require exact confirmations for deploy and delete operations."],
+      [
+        "Destructive-action guards",
+        "Require exact confirmations for deploy and delete operations.",
+      ],
     ],
   },
   {
     title: "Local desktop platform",
-    description: "Device-specific tooling without a hosted database or credential proxy.",
+    description:
+      "Device-specific tooling without a hosted database or credential proxy.",
     icon: ShieldCheck,
     items: [
-      ["Local Salesforce CLI bridge", "Run supported sf commands without exposing a terminal."],
-      ["Database-free storage", "Keep preferences, selections, and history in local files."],
+      [
+        "Local Salesforce CLI bridge",
+        "Run supported sf commands without exposing a terminal.",
+      ],
+      [
+        "Database-free storage",
+        "Keep preferences, selections, and history in local files.",
+      ],
       ["Operation history", "Review recent local API operations and outcomes."],
-      ["Collapsible workspace", "Use a responsive, expandable desktop navigation layout."],
-      ["GitHub application updates", "Check, download, install, and restart from a GitHub Release."],
+      [
+        "Collapsible workspace",
+        "Use a responsive, expandable desktop navigation layout.",
+      ],
+      [
+        "GitHub application updates",
+        "Check, download, install, and restart from a GitHub Release.",
+      ],
     ],
   },
 ] as const;
 function Capabilities() {
   const [search, setSearch] = useState("");
-  const total = capabilityGroups.reduce((count, group) => count + group.items.length, 0);
+  const total = capabilityGroups.reduce(
+    (count, group) => count + group.items.length,
+    0,
+  );
   const groups = capabilityGroups
     .map((group) => ({
       ...group,
-      items: fuzzySearch([...group.items], search, (item) => [item[0], item[1], group.title]),
+      items: fuzzySearch([...group.items], search, (item) => [
+        item[0],
+        item[1],
+        group.title,
+      ]),
     }))
     .filter((group) => group.items.length);
   return (
@@ -2364,8 +2527,8 @@ function Capabilities() {
           <Badge tone="blue">CURRENT APPLICATION SCOPE</Badge>
           <h2>Salesforce workflows, available now.</h2>
           <p>
-            A verified inventory of features backed by the local Salesforce CLI and the
-            current application interface.
+            A verified inventory of features backed by the local Salesforce CLI
+            and the current application interface.
           </p>
         </div>
         <div className="capability-total">
@@ -2374,9 +2537,24 @@ function Capabilities() {
         </div>
       </div>
       <div className="capability-summary">
-        <div><Box /><span><b>{capabilityGroups.length}</b> workflow modules</span></div>
-        <div><ShieldCheck /><span><b>Local-first</b> security boundary</span></div>
-        <div><Database /><span><b>No database</b> required</span></div>
+        <div>
+          <Box />
+          <span>
+            <b>{capabilityGroups.length}</b> workflow modules
+          </span>
+        </div>
+        <div>
+          <ShieldCheck />
+          <span>
+            <b>Local-first</b> security boundary
+          </span>
+        </div>
+        <div>
+          <Database />
+          <span>
+            <b>No database</b> required
+          </span>
+        </div>
       </div>
       <label className="search capability-search">
         <Search />
@@ -2385,21 +2563,39 @@ function Capabilities() {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Fuzzy search capabilities…"
         />
-        {search && <button className="icon" onClick={() => setSearch("")} title="Clear search"><X /></button>}
+        {search && (
+          <button
+            className="icon"
+            onClick={() => setSearch("")}
+            title="Clear search"
+          >
+            <X />
+          </button>
+        )}
       </label>
       <div className="capability-groups">
         {groups.map(({ title, description, icon: Icon, items }) => (
           <section className="capability-group" key={title}>
             <div className="capability-group-head">
-              <span><Icon /></span>
-              <div><h3>{title}</h3><p>{description}</p></div>
+              <span>
+                <Icon />
+              </span>
+              <div>
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </div>
               <Badge>{items.length} available</Badge>
             </div>
             <div className="capability-items">
               {items.map(([name, detail]) => (
                 <article key={name}>
-                  <span><Check /></span>
-                  <div><b>{name}</b><p>{detail}</p></div>
+                  <span>
+                    <Check />
+                  </span>
+                  <div>
+                    <b>{name}</b>
+                    <p>{detail}</p>
+                  </div>
                   <Badge tone="green">Available</Badge>
                 </article>
               ))}
@@ -2407,7 +2603,11 @@ function Capabilities() {
           </section>
         ))}
         {!groups.length && (
-          <Empty icon={Search} title="No matching capabilities" text="Try a broader name, workflow, or Salesforce feature." />
+          <Empty
+            icon={Search}
+            title="No matching capabilities"
+            text="Try a broader name, workflow, or Salesforce feature."
+          />
         )}
       </div>
       <div className="capability-boundary">
@@ -2415,8 +2615,9 @@ function Capabilities() {
         <div>
           <h3>Deliberate security boundary</h3>
           <p>
-            Salesforce credentials remain in the CLI. Arbitrary terminal commands, raw access
-            tokens, and unconfirmed destructive operations are not exposed to the browser UI.
+            Salesforce credentials remain in the CLI. Arbitrary terminal
+            commands, raw access tokens, and unconfirmed destructive operations
+            are not exposed to the browser UI.
           </p>
         </div>
         <Badge tone="blue">DEVICE SPECIFIC</Badge>
