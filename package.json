@@ -39,6 +39,9 @@
       "package.json",
       "node_modules/**/*"
     ],
+    "extraMetadata": {
+      "repository": "https://github.com/rahadulx0/sf-dev-console"
+    },
     "directories": {
       "output": "release",
       "buildResources": "desktop/assets"

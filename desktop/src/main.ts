@@ -3,6 +3,7 @@ import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { registerUpdater } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -66,6 +67,7 @@ async function startApplication() {
     title: 'SF Dev Console',
     show: false,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -89,6 +91,7 @@ async function startApplication() {
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();
 else {
+  registerUpdater();
   app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
