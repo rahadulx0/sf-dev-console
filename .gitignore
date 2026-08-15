@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.log
+.sf-dev-console
+server/data
+server/workspace
+*.tsbuildinfo
+release
+desktop/assets/icon.iconset
