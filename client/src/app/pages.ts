@@ -5,6 +5,7 @@ import {
   Code2,
   Database,
   Gauge,
+  GitCompare,
   History,
   LayoutDashboard,
   Package,
@@ -33,6 +34,7 @@ export type PageKey =
   | 'limits'
   | 'packages'
   | 'deploy'
+  | 'orgDeploy'
   | 'activities'
   | 'capabilities';
 
@@ -77,6 +79,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'limits', label: 'Org limits', description: 'API and platform capacity', icon: Gauge },
       { key: 'packages', label: 'Installed packages', description: 'Managed and unlocked packages', icon: Package },
       { key: 'deploy', label: 'Deploy & validate', description: 'Preview, validate, and deploy metadata', icon: Rocket },
+      {
+        key: 'orgDeploy',
+        label: 'Org-to-org deploy',
+        description: 'Compare and deploy metadata between two orgs',
+        icon: GitCompare,
+      },
     ],
   },
   {

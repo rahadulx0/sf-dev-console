@@ -17,3 +17,17 @@ export interface RetrievalRecord {
 
 export interface SavedSet { id: string; name: string; createdAt: string; selections: Selection[] }
 export interface ActivityRecord { id: string; operation: string; method: string; statusCode: number; createdAt: string }
+
+export interface OrgDeployRecord {
+  id: string;
+  sourceOrg: string;
+  targetOrg: string;
+  mode: 'validate' | 'deploy';
+  status: 'running' | 'succeeded' | 'failed' | 'cancelled';
+  jobId?: string;
+  componentCount: number;
+  types: string[];
+  createdAt: string;
+  completedAt?: string;
+  error?: string;
+}

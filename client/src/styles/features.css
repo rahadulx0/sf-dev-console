@@ -815,6 +815,95 @@
   border-top: 1px solid var(--border);
 }
 
+/* Org-to-org deploy -------------------------------------------------------- */
+.step-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  padding: var(--s-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.step-tab {
+  height: var(--control-h-sm);
+  padding: 0 var(--s-4);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.step-tab:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.step-tab:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.step-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+.dependency-list {
+  margin: var(--s-2) 0 0;
+  padding-left: var(--s-5);
+  font-size: var(--fs-sm);
+}
+
+.dependency-list li + li {
+  margin-top: var(--s-1);
+}
+
+.diff-files {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.diff-file-head {
+  margin-bottom: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.diff-note {
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.diff-block {
+  max-height: 420px;
+  overflow: auto;
+  line-height: var(--lh-loose);
+}
+
+.diff-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-line.diff-add {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.diff-line.diff-remove {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 /* Capabilities ----------------------------------------------------------- */
 .capability-search {
   display: flex;

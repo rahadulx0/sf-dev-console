@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import type { ActivityRecord, RetrievalRecord, SavedSet } from '../types.js';
+import type { ActivityRecord, OrgDeployRecord, RetrievalRecord, SavedSet } from '../types.js';
 
 export const appHome = process.env.SF_CONSOLE_HOME || path.join(os.homedir(), '.sf-dev-console');
 export const workspace = path.join(appHome, 'workspace');
@@ -14,9 +14,10 @@ export interface State {
   retrievals: RetrievalRecord[];
   savedSets: SavedSet[];
   activities: ActivityRecord[];
+  orgDeploys: OrgDeployRecord[];
 }
 
-const emptyState = (): State => ({ retrievals: [], savedSets: [], activities: [] });
+const emptyState = (): State => ({ retrievals: [], savedSets: [], activities: [], orgDeploys: [] });
 
 /**
  * The whole state file is small (capped activity + retrieval lists), so it is held in memory
@@ -35,6 +36,7 @@ let dirty = false;
 export async function initStorage() {
   await mkdir(path.join(workspace, 'manifest'), { recursive: true });
   await mkdir(path.join(workspace, 'retrieve'), { recursive: true });
+  await mkdir(path.join(workspace, 'org-deploy'), { recursive: true });
   try {
     await readFile(path.join(workspace, 'sfdx-project.json'));
   } catch {
@@ -55,6 +57,7 @@ async function loadState() {
       retrievals: parsed.retrievals ?? [],
       savedSets: parsed.savedSets ?? [],
       activities: parsed.activities ?? [],
+      orgDeploys: parsed.orgDeploys ?? [],
     };
   } catch {
     state = emptyState();

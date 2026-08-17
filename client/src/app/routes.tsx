@@ -19,6 +19,7 @@ export const ROUTES: Record<PageKey, ComponentType> = {
   limits: lazy(() => import('../features/limits/LimitsPage')),
   packages: lazy(() => import('../features/packages/PackagesPage')),
   deploy: lazy(() => import('../features/deploy/DeployPage')),
+  orgDeploy: lazy(() => import('../features/orgDeploy/OrgDeployPage')),
   history: lazy(() => import('../features/history/HistoryPage')),
   activities: lazy(() => import('../features/activities/ActivitiesPage')),
   capabilities: lazy(() => import('../features/capabilities/CapabilitiesPage')),

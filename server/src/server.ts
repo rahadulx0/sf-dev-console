@@ -13,6 +13,7 @@ import { retrievalRoutes } from './routes/retrievals.js';
 import { dataRoutes } from './routes/data.js';
 import { apexRoutes } from './routes/apex.js';
 import { deployRoutes } from './routes/deploy.js';
+import { orgDeployRoutes } from './routes/orgDeploy.js';
 
 const app = Fastify({ logger: true, bodyLimit: 2_000_000 });
 await app.register(cors, { origin: ['http://127.0.0.1:5173', 'http://localhost:5173'] });
@@ -59,6 +60,7 @@ await app.register(retrievalRoutes);
 await app.register(dataRoutes);
 await app.register(apexRoutes);
 await app.register(deployRoutes);
+await app.register(orgDeployRoutes);
 
 const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
 try {
