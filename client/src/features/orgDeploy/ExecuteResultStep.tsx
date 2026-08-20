@@ -34,10 +34,12 @@ export function ExecuteResultStep({
   const [log, setLog] = useState<LogEntry[]>([{ at: Date.now(), text: `Submitted ${record.mode} job${record.jobId ? ` ${record.jobId}` : ''}` }]);
   const [busy, setBusy] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [jobId, setJobId] = useState(record.jobId || '');
+  const [quickConfirmation, setQuickConfirmation] = useState('');
   const doneRef = useRef(false);
 
   useEffect(() => {
-    if (!record.jobId) {
+    if (!jobId) {
       setLog((current) => [...current, { at: Date.now(), text: 'No job ID was returned — nothing to poll.' }]);
       return;
     }
@@ -46,7 +48,7 @@ export function ExecuteResultStep({
 
     const poll = async () => {
       try {
-        const response = await api<any>(`/deploy/${encodeURIComponent(record.targetOrg)}/${record.jobId}`);
+        const response = await api<any>(`/deploy/${encodeURIComponent(record.targetOrg)}/${jobId}`);
         if (cancelled) return;
         setReport(response);
         const done = typeof response?.done === 'boolean' ? response.done : !PENDING_STATUSES.has(response?.status);
@@ -73,15 +75,37 @@ export function ExecuteResultStep({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [record.jobId, record.targetOrg, record.id]);
+  }, [jobId, record.targetOrg, record.id]);
 
   async function cancel() {
-    if (!record.jobId) return;
+    if (!jobId) return;
     setBusy(true);
     try {
-      await api('/deploy/cancel', { method: 'POST', body: JSON.stringify({ org: record.targetOrg, jobId: record.jobId }) });
+      await api('/deploy/cancel', { method: 'POST', body: JSON.stringify({ org: record.targetOrg, jobId }) });
       setLog((current) => [...current, { at: Date.now(), text: 'Cancellation requested' }]);
-      toast.info('Cancellation requested', `Job ${record.jobId}`);
+      toast.info('Cancellation requested', `Job ${jobId}`);
+    } catch (error) {
+      toast.error(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function quickDeploy() {
+    if (!jobId) return;
+    setBusy(true);
+    try {
+      const response = await api<any>('/deploy/quick', {
+        method: 'POST',
+        body: JSON.stringify({ org: record.targetOrg, jobId, confirmation: quickConfirmation }),
+      });
+      const nextJobId = response?.id || response?.jobId || jobId;
+      setReport(response);
+      setStatus('running');
+      setJobId(nextJobId);
+      setQuickConfirmation('');
+      setLog((current) => [...current, { at: Date.now(), text: `Quick deploy submitted as job ${nextJobId}` }]);
+      toast.success('Quick deploy started', `Job ${nextJobId}`);
     } catch (error) {
       toast.error(error);
     } finally {
@@ -98,7 +122,7 @@ export function ExecuteResultStep({
       <Panel>
         <PanelHead
           title={`${record.mode === 'deploy' ? 'Deployment' : 'Validation'} · ${record.sourceOrg} → ${record.targetOrg}`}
-          description={record.jobId ? `Job ${record.jobId}` : 'Submitted to Salesforce'}
+          description={jobId ? `Job ${jobId}` : 'Submitted to Salesforce'}
         >
           <Badge tone={status === 'succeeded' ? 'success' : status === 'failed' ? 'danger' : 'accent'}>
             {status === 'running' ? <LoaderCircle className="spin" /> : status === 'succeeded' ? <Check /> : <XCircle />} {status}
@@ -129,7 +153,7 @@ export function ExecuteResultStep({
           </div>
 
           <div className="action-row">
-            {status === 'running' && record.jobId ? (
+            {status === 'running' && jobId ? (
               <button className="btn btn-destructive btn-sm" disabled={busy} onClick={cancel}>
                 Cancel job
               </button>
@@ -140,6 +164,14 @@ export function ExecuteResultStep({
               </button>
             ) : null}
           </div>
+
+          {status === 'succeeded' && record.mode === 'validate' && !record.targetIsSandbox && jobId ? (
+            <div className="quick-zone">
+              <div><b>Validation succeeded</b><small>Type <code>QUICK DEPLOY {jobId}</code> to deploy this validated package without rerunning tests.</small></div>
+              <input className="input input-mono" value={quickConfirmation} onChange={(event) => setQuickConfirmation(event.target.value)} placeholder={`QUICK DEPLOY ${jobId}`} />
+              <button className="btn btn-primary" disabled={busy || quickConfirmation !== `QUICK DEPLOY ${jobId}`} onClick={quickDeploy}>Quick deploy</button>
+            </div>
+          ) : null}
 
           <div className="row-list" style={{ marginTop: 'var(--s-4)' }}>
             {log.map((entry, i) => (

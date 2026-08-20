@@ -33,12 +33,15 @@ export default function OrgDeployPage() {
   const [comparing, setComparing] = useState(false);
   const [compare, setCompare] = useState<CompareResult | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [destructiveKeys, setDestructiveKeys] = useState<Set<string>>(new Set());
 
   const [mode, setMode] = useState<'validate' | 'deploy'>('validate');
   const [testLevel, setTestLevel] = useState<TestLevel>('RunLocalTests');
   const [testsInput, setTestsInput] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [executing, setExecuting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [deployPreview, setDeployPreview] = useState<any>(null);
   const [deployResult, setDeployResult] = useState<{ record: OrgDeployRecord; response: any } | null>(null);
 
   const unlocked = useMemo(() => {
@@ -60,7 +63,8 @@ export default function OrgDeployPage() {
         body: JSON.stringify({ sourceOrg, targetOrg, selections }),
       });
       setCompare(result);
-      setSelectedKeys(new Set(result.rows.map((row) => row.key)));
+      setSelectedKeys(new Set(result.rows.filter((row) => row.sourceExists).map((row) => row.key)));
+      setDestructiveKeys(new Set());
       setStep('review');
       if (!result.targetAvailable) {
         toast.info('Comparison completed with warnings', 'The target org could not be read — see the review step.');
@@ -88,6 +92,7 @@ export default function OrgDeployPage() {
         body: JSON.stringify({
           id: compare.id,
           keys: [...selectedKeys],
+          destructiveKeys: [...destructiveKeys],
           targetOrg,
           mode,
           testLevel,
@@ -106,15 +111,36 @@ export default function OrgDeployPage() {
     }
   }
 
+  async function runPreview() {
+    if (!compare) return;
+    setPreviewing(true);
+    try {
+      const result = await api('/org-deploy/preview', {
+        method: 'POST',
+        body: JSON.stringify({ id: compare.id, keys: [...selectedKeys], destructiveKeys: [...destructiveKeys], targetOrg }),
+      });
+      setDeployPreview(result);
+      toast.success('Deployment preview complete', 'Salesforce CLI reviewed the prepared package.');
+    } catch (error) {
+      toast.error(error);
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   function restart() {
     setCompare(null);
     setSelectedKeys(new Set());
+    setDestructiveKeys(new Set());
     setDeployResult(null);
     setConfirmation('');
+    setDeployPreview(null);
     setStep('metadata');
   }
 
-  const selectedTypes = compare ? [...new Set(compare.rows.filter((row) => selectedKeys.has(row.key)).map((row) => row.type))] : [];
+  const selectedTypes = compare
+    ? [...new Set(compare.rows.filter((row) => selectedKeys.has(row.key) || destructiveKeys.has(row.key)).map((row) => row.type))]
+    : [];
 
   return (
     <>
@@ -158,6 +184,8 @@ export default function OrgDeployPage() {
           compare={compare}
           selectedKeys={selectedKeys}
           setSelectedKeys={setSelectedKeys}
+          destructiveKeys={destructiveKeys}
+          setDestructiveKeys={setDestructiveKeys}
           onBack={() => setStep('metadata')}
           onNext={() => setStep('settings')}
         />
@@ -166,7 +194,8 @@ export default function OrgDeployPage() {
       {step === 'settings' && compare ? (
         <DeploySettingsStep
           compare={compare}
-          selectedCount={selectedKeys.size}
+          selectedCount={selectedKeys.size + destructiveKeys.size}
+          destructiveCount={destructiveKeys.size}
           selectedTypes={selectedTypes}
           mode={mode}
           setMode={setMode}
@@ -177,6 +206,9 @@ export default function OrgDeployPage() {
           confirmation={confirmation}
           setConfirmation={setConfirmation}
           busy={executing}
+          previewBusy={previewing}
+          preview={deployPreview}
+          onPreview={runPreview}
           onBack={() => setStep('review')}
           onExecute={runExecute}
         />

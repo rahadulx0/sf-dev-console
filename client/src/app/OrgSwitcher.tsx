@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronsUpDown, Cloud } from 'lucide-react';
 import { useAppState } from './state';
@@ -24,6 +24,12 @@ export function OrgSwitcher() {
   const [activeIndex, setActiveIndex] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const sortedOrgs = useMemo(
+    () => [...orgs].sort((left, right) => Number(left.isSandbox) - Number(right.isSandbox) || orgIdOf(left).localeCompare(orgIdOf(right))),
+    [orgs],
+  );
+  const productionCount = sortedOrgs.filter((candidate) => !candidate.isSandbox).length;
+  const sandboxCount = sortedOrgs.length - productionCount;
 
   function openMenu() {
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -32,7 +38,7 @@ export function OrgSwitcher() {
     // more of them readable without truncating, especially in the narrow collapsed rail.
     const width = Math.min(Math.max(rect.width, 300), window.innerWidth - rect.left - 16);
     setMenuRect({ top: rect.bottom + 6, left: rect.left, width });
-    setActiveIndex(Math.max(0, orgs.findIndex((candidate) => orgIdOf(candidate) === orgId)));
+    setActiveIndex(Math.max(0, sortedOrgs.findIndex((candidate) => orgIdOf(candidate) === orgId)));
     setOpen(true);
   }
 
@@ -43,16 +49,21 @@ export function OrgSwitcher() {
       if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
       setOpen(false);
     }
-    function onReposition() {
+    function onResize() {
+      setOpen(false);
+    }
+    function onOutsideScroll(event: Event) {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
       setOpen(false);
     }
     document.addEventListener('mousedown', onDocMouseDown);
-    window.addEventListener('resize', onReposition);
-    window.addEventListener('scroll', onReposition, true);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onOutsideScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDocMouseDown);
-      window.removeEventListener('resize', onReposition);
-      window.removeEventListener('scroll', onReposition, true);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onOutsideScroll, true);
     };
   }, [open]);
 
@@ -76,13 +87,13 @@ export function OrgSwitcher() {
       setOpen(false);
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActiveIndex((index) => (index + 1) % orgs.length);
+      setActiveIndex((index) => (index + 1) % sortedOrgs.length);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex((index) => (index - 1 + orgs.length) % orgs.length);
+      setActiveIndex((index) => (index - 1 + sortedOrgs.length) % sortedOrgs.length);
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      if (orgs[activeIndex]) choose(orgs[activeIndex]);
+      if (sortedOrgs[activeIndex]) choose(sortedOrgs[activeIndex]);
     }
   }
 
@@ -119,27 +130,36 @@ export function OrgSwitcher() {
               aria-label="Switch active org"
               style={{ top: menuRect.top, left: menuRect.left, width: menuRect.width }}
             >
-              {orgs.map((candidate, index) => {
+              {sortedOrgs.map((candidate, index) => {
                 const id = orgIdOf(candidate);
                 const active = id === orgId;
+                const showGroup = index === 0 || sortedOrgs[index - 1]?.isSandbox !== candidate.isSandbox;
+                const groupCount = candidate.isSandbox ? sandboxCount : productionCount;
                 return (
-                  <button
-                    key={candidate.username}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    className={`org-menu-item${index === activeIndex ? ' is-active' : ''}`}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => choose(candidate)}
-                  >
-                    <span className="org-menu-item-text">
-                      <b>{id}</b>
-                      <small>
-                        {candidate.isSandbox ? 'Sandbox' : 'Production'} · {candidate.username}
-                      </small>
-                    </span>
-                    {active ? <Check /> : null}
-                  </button>
+                  <div key={candidate.username}>
+                    {showGroup ? (
+                      <div className="org-menu-group">
+                        <span>{candidate.isSandbox ? 'Sandbox orgs' : 'Production orgs'}</span>
+                        <b>{groupCount}</b>
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      className={`org-menu-item${index === activeIndex ? ' is-active' : ''}`}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => choose(candidate)}
+                    >
+                      <span className="org-menu-item-text">
+                        <b>{id}</b>
+                        <small>
+                          {candidate.isSandbox ? 'Sandbox' : 'Production'} · {candidate.username}
+                        </small>
+                      </span>
+                      {active ? <Check /> : null}
+                    </button>
+                  </div>
                 );
               })}
             </div>,

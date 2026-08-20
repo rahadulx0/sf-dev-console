@@ -8,6 +8,36 @@ import type { Selection } from '../types.js';
 import { cli, readSignal, safeOrg, safeType, ttl } from './shared.js';
 
 export async function metadataRoutes(app: FastifyInstance) {
+  app.get<{ Params: { org: string } }>('/api/orgs/:org/flows', async (request, reply) => {
+    const org = safeOrg(request.params.org);
+    const query = [
+      'SELECT Id, Definition.DeveloperName, MasterLabel, VersionNumber, Status, ProcessType, LastModifiedDate',
+      'FROM Flow',
+      'ORDER BY Definition.DeveloperName, VersionNumber DESC',
+    ].join(' ');
+    const result = await cli.execute(
+      ['data', 'query', '--query', query, '--target-org', org, '--use-tooling-api'],
+      {
+        timeoutMs: 180_000,
+        signal: readSignal(request, reply),
+        cache: { key: `orgs:${org}:flow-versions`, ttlMs: ttl.metadataComponents },
+      },
+    );
+    return {
+      flows: (result.records || [])
+        .map((record: any) => ({
+          id: record.Id,
+          developerName: record.Definition?.DeveloperName,
+          label: record.MasterLabel,
+          version: Number(record.VersionNumber),
+          status: record.Status,
+          processType: record.ProcessType,
+          lastModifiedDate: record.LastModifiedDate,
+        }))
+        .filter((flow: any) => flow.id && flow.developerName && Number.isInteger(flow.version) && flow.version > 0),
+    };
+  });
+
   app.get<{ Params: { org: string } }>('/api/orgs/:org/metadata/types', async (request, reply) => {
     const org = safeOrg(request.params.org);
     const result = await cli.execute(['org', 'list', 'metadata-types', '--target-org', org], {

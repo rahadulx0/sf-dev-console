@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronRight, GitCompare, LoaderCircle, PackageCheck, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, GitCompare, LoaderCircle, PackageCheck, ShieldCheck, X } from 'lucide-react';
 import { api, orgPath } from '../../lib/api';
 import { orgKey } from '../../app/state';
 import { useDebounced } from '../../lib/hooks';
 import { fuzzyStrings } from '../../lib/fuzzy';
 import { useResource } from '../../lib/resource';
-import { Badge, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar } from '../../ui/primitives';
+import { Badge, Callout, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar } from '../../ui/primitives';
 import { VirtualList } from '../../ui/VirtualList';
 import type { Selection } from '../../types';
 
@@ -26,7 +26,9 @@ export function SelectMetadataStep({
 }) {
   const [expanded, setExpanded] = useState('');
   const [search, setSearch] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
   const query = useDebounced(search);
+  const memberQuery = useDebounced(memberSearch);
 
   const types = useResource<{ types: { name: string }[] }>(
     orgKey(sourceOrg, 'metadata-types'),
@@ -49,7 +51,7 @@ export function SelectMetadataStep({
   }, [typeNames, query, expanded]);
 
   const members = useMemo(() => (components.data?.components ?? []).map((c) => c.fullName), [components.data]);
-  const shownMembers = useMemo(() => fuzzyStrings(members, query), [members, query]);
+  const shownMembers = useMemo(() => fuzzyStrings(members, memberQuery), [members, memberQuery]);
 
   const selectionMap = useMemo(() => new Map(selections.map((s) => [s.type, s.members])), [selections]);
   const selectedCount = selections.reduce((total, s) => total + s.members.length, 0);
@@ -61,15 +63,23 @@ export function SelectMetadataStep({
     setSelections(next.length ? [...others, { type, members: next }] : others);
   }
 
+  const includesCustomFields = selections.some((selection) => selection.type === 'CustomField');
+
   return (
-    <div className="split split-metadata">
+    <div className="page-stack">
+      {includesCustomFields ? (
+        <Callout icon={ShieldCheck} tone="accent" title="Field-level security will be included">
+          Source Profiles and Permission Sets will be retrieved with the selected fields and included in comparison and deployment review.
+        </Callout>
+      ) : null}
+      <div className="split split-metadata">
       <Panel>
         <PanelHead title="Metadata types" description={`Browsing ${sourceOrg}. Components load only when you open a type.`}>
           <Badge>{typeNames.length} types</Badge>
           <StaleBar updatedAt={types.updatedAt} refreshing={types.loading} onRefresh={types.refresh} />
         </PanelHead>
         <div className="panel-body">
-          <SearchInput value={search} onChange={setSearch} placeholder="Fuzzy search types and loaded components…" />
+          <SearchInput value={search} onChange={setSearch} placeholder="Search metadata types…" />
           {types.pending ? (
             <Loading label="Reading metadata from the source org…" />
           ) : !shownTypes.length ? (
@@ -82,13 +92,24 @@ export function SelectMetadataStep({
                 const all = selected.includes('*');
                 return (
                   <div className={`type${isOpen ? ' is-open' : ''}`} key={type}>
-                    <button className="type-head" onClick={() => setExpanded(isOpen ? '' : type)}>
+                    <button
+                      className="type-head"
+                      onClick={() => {
+                        setExpanded(isOpen ? '' : type);
+                        setMemberSearch('');
+                      }}
+                    >
                       <ChevronRight className={isOpen ? 'is-rotated' : ''} />
                       <span className="mono">{type}</span>
                       {selected.length ? <Badge tone="accent">{all ? 'All' : selected.length}</Badge> : null}
                     </button>
                     {isOpen ? (
                       <div className="type-body">
+                        <SearchInput
+                          value={memberSearch}
+                          onChange={setMemberSearch}
+                          placeholder={`Search ${type} components by API name…`}
+                        />
                         <div className="type-toolbar">
                           <button className="btn btn-link" onClick={() => toggleMember(type, '*')}>
                             {all ? 'Clear type' : 'Select entire type'}
@@ -96,7 +117,7 @@ export function SelectMetadataStep({
                           <small>
                             {components.pending
                               ? 'Loading components…'
-                              : `${shownMembers.length}${query ? ' matching' : ''} of ${members.length} components`}
+                              : `${shownMembers.length}${memberQuery ? ' matching' : ''} of ${members.length} components`}
                           </small>
                         </div>
                         {components.pending ? (
@@ -169,6 +190,7 @@ export function SelectMetadataStep({
           </div>
         </Panel>
       </aside>
+      </div>
     </div>
   );
 }

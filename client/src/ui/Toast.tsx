@@ -14,7 +14,7 @@ interface Toast {
 
 interface ToastApi {
   success: (title: string, detail?: string, action?: Toast['action']) => void;
-  error: (error: unknown, detail?: string) => void;
+  error: (error: unknown, detail?: string, action?: Toast['action']) => void;
   info: (title: string, detail?: string, action?: Toast['action']) => void;
 }
 
@@ -42,7 +42,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     () => ({
       success: (title, detail, action) => push('success', title, detail, action),
       info: (title, detail, action) => push('info', title, detail, action),
-      error: (error, detail) => push('error', errorMessage(error), detail),
+      error: (error, detail, action) => push('error', errorMessage(error), detail, action),
     }),
     [push],
   );

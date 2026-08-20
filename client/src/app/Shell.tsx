@@ -1,7 +1,8 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Cloud,
+  ChevronDown,
   Menu,
   Moon,
   PanelLeftClose,
@@ -32,6 +33,9 @@ export function Shell({ status }: { status: SystemStatus }) {
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
   const [navTooltip, setNavTooltip] = useState<{ label: string; top: number; left: number } | null>(null);
+  const [navFlyout, setNavFlyout] = useState<{ label: string; top: number; left: number } | null>(null);
+  const flyoutCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [openNavGroups, setOpenNavGroups] = useLocalStorage<string[]>('sf-sidebar-open-groups', ['Metadata']);
 
   function showNavTooltip(event: React.SyntheticEvent<HTMLButtonElement>, label: string) {
     // Below the drawer breakpoint the rail shows full labels even while "collapsed", so a
@@ -41,11 +45,42 @@ export function Shell({ status }: { status: SystemStatus }) {
     setNavTooltip({ label, top: rect.top + rect.height / 2, left: rect.right + 10 });
   }
   const hideNavTooltip = () => setNavTooltip(null);
-  useEffect(hideNavTooltip, [collapsed]);
+  useEffect(() => {
+    hideNavTooltip();
+    setNavFlyout(null);
+  }, [collapsed]);
+
+  function openNavFlyout(event: React.SyntheticEvent<HTMLButtonElement>, label: string) {
+    if (!collapsed || window.innerWidth <= 860) return;
+    if (flyoutCloseTimer.current) clearTimeout(flyoutCloseTimer.current);
+    const rect = event.currentTarget.getBoundingClientRect();
+    const itemCount = NAV_GROUPS.find((group) => group.label === label)?.pages.length ?? 1;
+    const estimatedHeight = 50 + itemCount * 38;
+    setNavFlyout({ label, top: Math.max(8, Math.min(rect.top, window.innerHeight - estimatedHeight - 8)), left: rect.right + 8 });
+  }
+
+  function keepNavFlyoutOpen() {
+    if (flyoutCloseTimer.current) clearTimeout(flyoutCloseTimer.current);
+  }
+
+  function closeNavFlyoutSoon() {
+    if (flyoutCloseTimer.current) clearTimeout(flyoutCloseTimer.current);
+    flyoutCloseTimer.current = setTimeout(() => setNavFlyout(null), 120);
+  }
 
   const page = isPageKey(route.page) ? route.page : 'overview';
   const definition = pageDef(page);
   const Page = ROUTES[page];
+  const activeGroup = NAV_GROUPS.find((group) => group.pages.some((item) => item.key === page));
+
+  useEffect(() => {
+    if (!activeGroup || activeGroup.pages.length === 1) return;
+    setOpenNavGroups((groups) => (groups.includes(activeGroup.label) ? groups : [...groups, activeGroup.label]));
+  }, [activeGroup?.label, setOpenNavGroups]);
+
+  function toggleNavGroup(label: string) {
+    setOpenNavGroups((groups) => (groups.includes(label) ? groups.filter((item) => item !== label) : [...groups, label]));
+  }
 
   useHotkey('k', () => setPalette((open) => !open), { meta: true, allowInInput: true });
   useEffect(() => setDrawer(false), [page]);
@@ -76,9 +111,51 @@ export function Shell({ status }: { status: SystemStatus }) {
         <OrgSwitcher />
 
         <nav className="sidebar-nav">
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label}>
-              <div className="nav-group-label">{group.label}</div>
+          {NAV_GROUPS.map((group) => {
+            const isSingle = group.pages.length === 1;
+            const isOpen = openNavGroups.includes(group.label);
+            const isGroupActive = group.pages.some((item) => item.key === page);
+            const GroupIcon = group.icon;
+
+            if (isSingle) {
+              const [{ key, label }] = group.pages;
+              return (
+                <button
+                  key={key}
+                  className={`nav-item nav-primary${page === key ? ' is-active' : ''}`}
+                  onClick={() => navigate(key)}
+                  onMouseEnter={(event) => showNavTooltip(event, label)}
+                  onMouseLeave={hideNavTooltip}
+                  onFocus={(event) => showNavTooltip(event, label)}
+                  onBlur={hideNavTooltip}
+                  aria-label={label}
+                  aria-current={page === key ? 'page' : undefined}
+                >
+                  <span className="nav-tile"><GroupIcon /></span>
+                  <span>{label}</span>
+                </button>
+              );
+            }
+
+            return (
+              <div className={`nav-group${isOpen ? ' is-open' : ''}`} key={group.label}>
+                <button
+                  className={`nav-group-trigger${isGroupActive ? ' is-active' : ''}`}
+                  onClick={(event) => collapsed && window.innerWidth > 860
+                    ? openNavFlyout(event, group.label)
+                    : toggleNavGroup(group.label)}
+                  onMouseEnter={(event) => openNavFlyout(event, group.label)}
+                  onMouseLeave={closeNavFlyoutSoon}
+                  onFocus={(event) => openNavFlyout(event, group.label)}
+                  onBlur={closeNavFlyoutSoon}
+                  aria-expanded={collapsed && window.innerWidth > 860 ? navFlyout?.label === group.label : isOpen}
+                  aria-label={group.label}
+                >
+                  <span className="nav-tile"><GroupIcon /></span>
+                  <span>{group.label}</span>
+                  <ChevronDown className="nav-group-chevron" />
+                </button>
+                <div className="nav-submenu">
               {group.pages.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
@@ -98,8 +175,10 @@ export function Shell({ status }: { status: SystemStatus }) {
                   {key === 'metadata' && selectedCount > 0 ? <span className="badge badge-accent">{selectedCount}</span> : null}
                 </button>
               ))}
+                </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
       </aside>
 
@@ -165,6 +244,38 @@ export function Shell({ status }: { status: SystemStatus }) {
             </div>,
             document.body,
           )
+        : null}
+      {navFlyout
+        ? (() => {
+            const group = NAV_GROUPS.find((item) => item.label === navFlyout.label);
+            if (!group) return null;
+            return createPortal(
+              <div
+                className="nav-flyout"
+                style={{ top: navFlyout.top, left: navFlyout.left }}
+                onMouseEnter={keepNavFlyoutOpen}
+                onMouseLeave={closeNavFlyoutSoon}
+              >
+                <div className="nav-flyout-title">{group.label}</div>
+                {group.pages.map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    className={`nav-flyout-item${page === key ? ' is-active' : ''}`}
+                    onClick={() => {
+                      setNavFlyout(null);
+                      navigate(key);
+                    }}
+                    aria-current={page === key ? 'page' : undefined}
+                  >
+                    <Icon />
+                    <span>{label}</span>
+                    {key === 'metadata' && selectedCount > 0 ? <span className="badge badge-accent">{selectedCount}</span> : null}
+                  </button>
+                ))}
+              </div>,
+              document.body,
+            );
+          })()
         : null}
     </div>
   );

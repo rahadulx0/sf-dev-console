@@ -3,6 +3,7 @@ import { mkdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { buildManifest } from './manifest.js';
+import { normalizeMetadataContent } from './metadataNormalizer.js';
 import type { Selection } from './types.js';
 
 export interface ComponentGroup {
@@ -125,7 +126,7 @@ export function groupMetadataFiles(files: string[], typeDirMap: Record<string, s
   return [...groups.values()];
 }
 
-/** Reads and hashes every file in each group (sorted, so file order never affects the hash). */
+/** Reads and semantically normalizes every file before hashing it. */
 export async function hashGroups(groups: ComponentGroup[], rootDir: string): Promise<Map<string, string>> {
   const hashes = new Map<string, string>();
   for (const group of groups) {
@@ -133,7 +134,7 @@ export async function hashGroups(groups: ComponentGroup[], rootDir: string): Pro
     for (const file of [...group.files].sort()) {
       hash.update(file);
       try {
-        hash.update(await readFile(path.join(rootDir, file)));
+        hash.update(normalizeMetadataContent(file, await readFile(path.join(rootDir, file))));
       } catch {
         hash.update('missing');
       }
@@ -233,11 +234,13 @@ export async function buildDeployScope(
   groups: ComponentGroup[],
   selectedKeys: Set<string>,
   destDir: string,
+  destructiveKeys: Set<string> = new Set(),
 ): Promise<number> {
+  await mkdir(destDir, { recursive: true });
   let copied = 0;
   const membersByType = new Map<string, Set<string>>();
   for (const group of groups) {
-    if (!selectedKeys.has(group.key)) continue;
+    if (!selectedKeys.has(group.key) || destructiveKeys.has(group.key)) continue;
     const members = membersByType.get(group.type) ?? new Set<string>();
     members.add(group.fullName);
     membersByType.set(group.type, members);
@@ -252,7 +255,19 @@ export async function buildDeployScope(
     }
   }
   const selections: Selection[] = [...membersByType.entries()].map(([type, members]) => ({ type, members: [...members] }));
-  if (selections.length) await writeFile(path.join(destDir, 'package.xml'), buildManifest(selections));
+  await writeFile(path.join(destDir, 'package.xml'), buildManifest(selections));
+  const destructiveSelections: Selection[] = [];
+  const destructiveByType = new Map<string, Set<string>>();
+  for (const group of groups) {
+    if (!destructiveKeys.has(group.key)) continue;
+    const members = destructiveByType.get(group.type) ?? new Set<string>();
+    members.add(group.fullName);
+    destructiveByType.set(group.type, members);
+  }
+  for (const [type, members] of destructiveByType) destructiveSelections.push({ type, members: [...members] });
+  if (destructiveSelections.length) {
+    await writeFile(path.join(destDir, 'destructiveChangesPost.xml'), buildManifest(destructiveSelections));
+  }
   return copied;
 }
 
@@ -285,6 +300,32 @@ export function safeSelections(value: unknown, safeType: (v: unknown) => string)
   });
 }
 
+/**
+ * Profiles and permission sets returned by Metadata API retrieval are scoped to the other
+ * members in the same manifest. Including both security types with selected CustomFields
+ * therefore carries the source org's fieldPermissions without pulling unrelated permissions
+ * into the deployment payload.
+ */
+export function includeFieldLevelSecurity(selections: Selection[]): { selections: Selection[]; included: boolean } {
+  if (!selections.some((selection) => selection.type === 'CustomField')) {
+    return { selections, included: false };
+  }
+  const next = selections.filter((selection) => selection.type !== 'Profile' && selection.type !== 'PermissionSet');
+  next.push({ type: 'Profile', members: ['*'] }, { type: 'PermissionSet', members: ['*'] });
+  return { selections: next, included: true };
+}
+
+/** Keeps FLS payloads mandatory whenever at least one CustomField is in the deploy scope. */
+export function includeRequiredFieldSecurityKeys(rows: ComparisonRow[], requestedKeys: Set<string>): Set<string> {
+  const next = new Set(requestedKeys);
+  const hasField = rows.some((row) => row.type === 'CustomField' && next.has(row.key));
+  if (!hasField) return next;
+  for (const row of rows) {
+    if (row.sourceExists && (row.type === 'Profile' || row.type === 'PermissionSet')) next.add(row.key);
+  }
+  return next;
+}
+
 export function confirmationPhrase(mode: 'validate' | 'deploy', targetOrg: string): string {
   return `${mode === 'deploy' ? 'DEPLOY' : 'VALIDATE'} ${targetOrg}`;
 }
@@ -293,19 +334,28 @@ export function buildRetrieveArgs(manifestPath: string, org: string, outputDir: 
   return ['project', 'retrieve', 'start', '--manifest', manifestPath, '--target-org', org, '--target-metadata-dir', outputDir, '--unzip'];
 }
 
-export function buildDeployArgs(mode: 'validate' | 'deploy', metadataDir: string, org: string, testLevel: TestLevel, tests: string[]): string[] {
+export function buildDeployArgs(
+  mode: 'validate' | 'deploy',
+  metadataDir: string,
+  org: string,
+  testLevel: TestLevel,
+  tests: string[],
+  targetIsSandbox = false,
+): string[] {
+  const effectiveTestLevel = mode === 'validate' && !targetIsSandbox && testLevel === 'NoTestRun' ? 'RunLocalTests' : testLevel;
   const args = [
     'project',
     'deploy',
-    mode === 'deploy' ? 'start' : 'validate',
+    mode === 'deploy' || targetIsSandbox ? 'start' : 'validate',
     '--metadata-dir',
     metadataDir,
     '--target-org',
     org,
     '--test-level',
-    testLevel,
+    effectiveTestLevel,
     '--async',
   ];
+  if (mode === 'validate' && targetIsSandbox) args.push('--dry-run');
   for (const test of tests) args.push('--tests', test);
   return args;
 }

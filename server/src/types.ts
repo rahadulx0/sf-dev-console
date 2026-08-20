@@ -12,7 +12,7 @@ export interface Selection { type: string; members: string[] }
 
 export interface RetrievalRecord {
   id: string; org: string; orgLabel: string; createdAt: string; status: 'running' | 'success' | 'failed';
-  selections: Selection[]; componentCount: number; manifestPath: string; outputPath?: string; error?: string;
+  selections: Selection[]; componentCount: number; manifestPath: string; outputPath?: string; error?: string; downloadName?: string;
 }
 
 export interface SavedSet { id: string; name: string; createdAt: string; selections: Selection[] }
@@ -22,6 +22,7 @@ export interface OrgDeployRecord {
   id: string;
   sourceOrg: string;
   targetOrg: string;
+  targetIsSandbox?: boolean;
   mode: 'validate' | 'deploy';
   status: 'running' | 'succeeded' | 'failed' | 'cancelled';
   jobId?: string;

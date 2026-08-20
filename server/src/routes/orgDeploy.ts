@@ -12,6 +12,8 @@ import {
   confirmationPhrase,
   groupMetadataFiles,
   hashGroups,
+  includeFieldLevelSecurity,
+  includeRequiredFieldSecurityKeys,
   safeSelections,
   safeTestLevel,
   safeTests,
@@ -133,7 +135,8 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       const sourceOrg = safeOrg(req.body.sourceOrg);
       const targetOrg = safeOrg(req.body.targetOrg);
       if (sourceOrg === targetOrg) throw new Error('Source and target orgs must be different');
-      const selections = safeSelections(req.body.selections, safeType);
+      const requestedSelections = safeSelections(req.body.selections, safeType);
+      const { selections, included: includedFieldLevelSecurity } = includeFieldLevelSecurity(requestedSelections);
 
       const id = randomUUID();
       const baseDir = path.join(workspace, 'org-deploy', id);
@@ -171,7 +174,7 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
 
       storeComparison({ id, sourceOrg, targetOrg, targetAvailable, targetError, baseDir, sourceDir, targetDir, rows });
 
-      return { id, sourceOrg, targetOrg, targetAvailable, targetError, rows, dependencies };
+      return { id, sourceOrg, targetOrg, targetAvailable, targetError, rows, dependencies, includedFieldLevelSecurity };
     },
   );
 
@@ -200,10 +203,48 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
     return { key: row.key, type: row.type, fullName: row.fullName, targetAvailable: comparison.targetAvailable, files };
   });
 
+  app.post<{ Body: { id: string; keys: string[]; destructiveKeys?: string[]; targetOrg: string } }>(
+    '/api/org-deploy/preview',
+    async (req) => {
+      const comparison = comparisons.get(safeUuid(req.body.id));
+      if (!comparison) throw new Error('This comparison has expired. Run Compare again.');
+      const targetOrg = safeOrg(req.body.targetOrg);
+      if (targetOrg !== comparison.targetOrg) throw new Error('Target org no longer matches the reviewed comparison');
+      const knownKeys = new Set(comparison.rows.map((row) => row.key));
+      let selectedKeys = new Set((req.body.keys || []).filter((key) => knownKeys.has(key)));
+      const destructiveKeys = new Set(
+        (req.body.destructiveKeys || []).filter((key) => comparison.rows.some((row) => row.key === key && row.status === 'missing-source')),
+      );
+      for (const key of destructiveKeys) selectedKeys.add(key);
+      selectedKeys = includeRequiredFieldSecurityKeys(comparison.rows, selectedKeys);
+      if (!selectedKeys.size) throw new Error('Select at least one reviewed component or explicit deletion');
+      const rows = comparison.rows.filter((row) => selectedKeys.has(row.key));
+      const scopeDir = path.join(comparison.baseDir, `preview-${randomUUID()}`);
+      await buildDeployScope(comparison.sourceDir, rows, selectedKeys, scopeDir, destructiveKeys);
+      const packageXml = await readFile(path.join(scopeDir, 'package.xml'), 'utf8');
+      let destructiveChangesPost: string | undefined;
+      try {
+        destructiveChangesPost = await readFile(path.join(scopeDir, 'destructiveChangesPost.xml'), 'utf8');
+      } catch {
+        // No explicit deletions were selected.
+      }
+      return {
+        targetOrg,
+        componentCount: rows.filter((row) => !destructiveKeys.has(row.key)).length,
+        deletionCount: destructiveKeys.size,
+        components: rows.filter((row) => !destructiveKeys.has(row.key)).map((row) => ({ type: row.type, fullName: row.fullName })),
+        deletions: rows.filter((row) => destructiveKeys.has(row.key)).map((row) => ({ type: row.type, fullName: row.fullName })),
+        packageXml,
+        destructiveChangesPost,
+      };
+    },
+  );
+
   app.post<{
     Body: {
       id: string;
       keys: string[];
+      destructiveKeys?: string[];
       targetOrg: string;
       mode: 'validate' | 'deploy';
       testLevel?: string;
@@ -222,8 +263,14 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
 
     const knownKeys = new Set(comparison.rows.map((r) => r.key));
     const requested = Array.isArray(req.body.keys) ? req.body.keys : [];
-    const selectedKeys = new Set(requested.filter((key) => knownKeys.has(key)));
-    if (!selectedKeys.size) throw new Error('Select at least one reviewed component');
+    let selectedKeys = new Set(requested.filter((key) => knownKeys.has(key)));
+    const requestedDestructive = Array.isArray(req.body.destructiveKeys) ? req.body.destructiveKeys : [];
+    const destructiveKeys = new Set(
+      requestedDestructive.filter((key) => comparison.rows.some((row) => row.key === key && row.status === 'missing-source')),
+    );
+    for (const key of destructiveKeys) selectedKeys.add(key);
+    if (!selectedKeys.size) throw new Error('Select at least one reviewed component or explicit deletion');
+    selectedKeys = includeRequiredFieldSecurityKeys(comparison.rows, selectedKeys);
 
     const testLevel = safeTestLevel(req.body.testLevel);
     const tests = safeTests(req.body.tests);
@@ -235,9 +282,14 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
     const opId = randomUUID();
     const scopeDir = path.join(comparison.baseDir, `deploy-${opId}`);
     await mkdir(scopeDir, { recursive: true });
-    await buildDeployScope(comparison.sourceDir, selectedRows, selectedKeys, scopeDir);
+    await buildDeployScope(comparison.sourceDir, selectedRows, selectedKeys, scopeDir, destructiveKeys);
 
-    const response = await cli.execute(buildDeployArgs(mode, scopeDir, targetOrg, testLevel, tests), {
+    let targetIsSandbox = false;
+    if (mode === 'validate') {
+      const orgInfo = await cli.execute(['org', 'display', '--target-org', targetOrg], { timeoutMs: 120_000 });
+      targetIsSandbox = !!orgInfo?.isSandbox;
+    }
+    const response = await cli.execute(buildDeployArgs(mode, scopeDir, targetOrg, testLevel, tests, targetIsSandbox), {
       cwd: workspace,
       timeoutMs: 120_000,
     });
@@ -246,6 +298,7 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       id: randomUUID(),
       sourceOrg: comparison.sourceOrg,
       targetOrg,
+      targetIsSandbox,
       mode,
       status: 'running',
       jobId: response?.id || response?.jobId,

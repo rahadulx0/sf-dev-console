@@ -138,6 +138,29 @@
   animation: rise 120ms ease;
 }
 
+.org-menu-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-3) var(--s-1);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.org-menu-group b {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
 .org-menu-item {
   display: flex;
   align-items: center;
@@ -197,13 +220,44 @@
   padding: 0 var(--s-2) var(--s-2);
 }
 
-.nav-group-label {
-  padding: var(--s-4) var(--s-3) var(--s-1);
-  color: var(--text-faint);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.nav-group {
+  margin-top: var(--s-1);
+}
+
+.nav-group-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  height: var(--nav-row-h);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  text-align: left;
+}
+
+.nav-group-trigger:hover,
+.nav-group-trigger.is-active { color: var(--text); background: var(--surface-2); }
+.nav-group-trigger > span:not(.nav-tile) { flex: 1; min-width: 0; }
+.nav-group-chevron { width: 16px; transition: transform var(--transition); }
+.nav-group.is-open .nav-group-chevron { transform: rotate(180deg); }
+.nav-submenu { display: none; padding: var(--s-1) 0 var(--s-1) var(--s-4); }
+.nav-group.is-open .nav-submenu { display: block; }
+@media (hover: hover) and (min-width: 861px) {
+  .app:not(.is-collapsed) .nav-group:hover .nav-submenu { display: block; }
+  .app:not(.is-collapsed) .nav-group:hover .nav-group-chevron { transform: rotate(180deg); }
+}
+.nav-primary { margin-bottom: var(--s-2); }
+.nav-submenu .nav-item { height: 36px; }
+.nav-submenu .nav-tile { width: 28px; height: 28px; }
+.nav-submenu .nav-tile svg { width: 17px; height: 17px; }
+
+.nav-group-trigger:hover .nav-tile,
+.nav-group-trigger.is-active .nav-tile {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .nav-item {
@@ -309,11 +363,52 @@
   pointer-events: none;
 }
 
-.is-collapsed .nav-group-label {
-  height: var(--s-4);
-  padding: var(--s-3) 0 0;
-  font-size: 0;
+.nav-flyout {
+  position: fixed;
+  z-index: 90;
+  width: 224px;
+  padding: var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
 }
+
+.nav-flyout-title {
+  padding: var(--s-2) var(--s-2) var(--s-1);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.nav-flyout-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--s-2);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.nav-flyout-item svg { width: 18px; flex: 0 0 auto; }
+.nav-flyout-item span:not(.badge) { flex: 1; }
+.nav-flyout-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-flyout-item.is-active { background: var(--accent-soft); color: var(--accent); font-weight: var(--fw-semibold); }
+
+.is-collapsed .nav-group-trigger {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  gap: 0;
+}
+.is-collapsed .nav-group-trigger > span:not(.nav-tile),
+.is-collapsed .nav-group-chevron { display: none; }
+.is-collapsed .nav-submenu { display: none; }
 
 .is-collapsed .org-switch {
   justify-content: center;
@@ -719,11 +814,11 @@
     display: block;
   }
 
-  .is-collapsed .nav-group-label {
-    height: auto;
-    padding: var(--s-4) var(--s-3) var(--s-1);
-    font-size: var(--fs-xs);
-  }
+  .is-collapsed .nav-group-trigger { display: flex; }
+  .is-collapsed .nav-group-trigger > span:not(.nav-tile) { display: block; }
+  .is-collapsed .nav-group-chevron { display: block; }
+  .is-collapsed .nav-submenu { display: none; padding: var(--s-1) 0 var(--s-1) var(--s-4); }
+  .is-collapsed .nav-group.is-open .nav-submenu { display: block; }
 
   .is-collapsed .sidebar-brand {
     justify-content: flex-start;

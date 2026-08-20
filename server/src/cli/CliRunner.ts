@@ -28,6 +28,18 @@ interface CacheEntry {
 const MAX_CONCURRENT = Math.max(1, Number(process.env.SF_CONSOLE_MAX_CLI) || 4);
 const SF_EXECUTABLE = 'sf';
 
+/**
+ * Dev runners can inject FORCE_COLOR while the Salesforce CLI toolchain injects NO_COLOR.
+ * Node warns whenever both are present, polluting command stderr and making real Apex errors
+ * unreadable. JSON CLI calls don't need terminal coloring, so pass neither variable through.
+ */
+function cliEnvironment(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, SF_DISABLE_TELEMETRY: 'true' };
+  delete env.FORCE_COLOR;
+  delete env.NO_COLOR;
+  return env;
+}
+
 export class CliRunner {
   private active = 0;
   private readonly queue: (() => void)[] = [];
@@ -97,7 +109,7 @@ export class CliRunner {
       const child = spawn(SF_EXECUTABLE, [...args, '--json'], {
         shell: false,
         cwd: options.cwd,
-        env: { ...process.env, SF_DISABLE_TELEMETRY: 'true' },
+        env: cliEnvironment(),
       });
       let stdout = '';
       let stderr = '';
@@ -154,7 +166,7 @@ export class CliRunner {
 
   async version() {
     return await new Promise<string>((resolve, reject) => {
-      const child = spawn(SF_EXECUTABLE, ['--version'], { shell: false, env: { ...process.env, SF_DISABLE_TELEMETRY: 'true' } });
+      const child = spawn(SF_EXECUTABLE, ['--version'], { shell: false, env: cliEnvironment() });
       let output = '';
       let error = '';
       child.stdout.on('data', (d) => { output += d; });

@@ -28,6 +28,7 @@ export interface RetrievalRecord {
   selections: Selection[];
   componentCount: number;
   error?: string;
+  downloadName?: string;
 }
 
 export interface ActivityRecord {
@@ -87,6 +88,7 @@ export interface CompareResult {
   targetError?: string;
   rows: ComparisonRow[];
   dependencies: Dependency[];
+  includedFieldLevelSecurity?: boolean;
 }
 
 export interface DiffFile {
@@ -112,6 +114,7 @@ export interface OrgDeployRecord {
   id: string;
   sourceOrg: string;
   targetOrg: string;
+  targetIsSandbox?: boolean;
   mode: 'validate' | 'deploy';
   status: 'running' | 'succeeded' | 'failed' | 'cancelled';
   jobId?: string;

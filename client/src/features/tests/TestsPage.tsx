@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { useAppState } from '../../app/state';
 import { Badge, CodeBlock, Field, Loading, Panel, PanelHead } from '../../ui/primitives';
 import { useToast } from '../../ui/Toast';
+import { SelectMenu } from '../../ui/SelectMenu';
 
 const LEVELS = ['RunLocalTests', 'RunAllTestsInOrg', 'RunSpecifiedTests'] as const;
 
@@ -49,11 +50,16 @@ export default function TestsPage() {
       <div className="panel-body">
         <div className="form-row">
           <Field label="Test level">
-            <select className="select" value={level} onChange={(event) => setLevel(event.target.value as typeof level)}>
-              {LEVELS.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
+            <SelectMenu
+              value={level}
+              onChange={(value) => setLevel(value as typeof level)}
+              ariaLabel="Apex test level"
+              options={[
+                { value: 'RunLocalTests', label: 'Run local tests', description: 'Exclude tests from installed packages' },
+                { value: 'RunAllTestsInOrg', label: 'Run all tests in org', description: 'Include managed-package tests' },
+                { value: 'RunSpecifiedTests', label: 'Run specified tests', description: 'Choose test classes explicitly' },
+              ]}
+            />
           </Field>
           {level === 'RunSpecifiedTests' ? (
             <Field label="Test classes" hint="Comma separated">

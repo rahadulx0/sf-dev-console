@@ -12,6 +12,8 @@ import {
   groupMetadataFiles,
   hashGroups,
   safeSelections,
+  includeFieldLevelSecurity,
+  includeRequiredFieldSecurityKeys,
   safeTestLevel,
   safeTests,
   scanDependencies,
@@ -159,6 +161,29 @@ test('buildDeployScope strips the unpackaged wrapper when copying so the scope d
   }
 });
 
+test('buildDeployScope creates explicit post-destructive changes without copying target-only files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-console-test-'));
+  try {
+    const sourceDir = path.join(root, 'source');
+    const destDir = path.join(root, 'dest');
+    await mkdir(sourceDir, { recursive: true });
+    const targetOnly = {
+      key: 'fields/Account.Old__c',
+      type: 'CustomField',
+      fullName: 'Account.Old__c',
+      files: ['objects/Account/fields/Old__c.field-meta.xml'],
+    };
+    await buildDeployScope(sourceDir, [targetOnly], new Set([targetOnly.key]), destDir, new Set([targetOnly.key]));
+    const regular = await readFile(path.join(destDir, 'package.xml'), 'utf8');
+    const destructive = await readFile(path.join(destDir, 'destructiveChangesPost.xml'), 'utf8');
+    assert.doesNotMatch(regular, /Old__c/);
+    assert.match(destructive, /<members>Account\.Old__c<\/members>/);
+    assert.match(destructive, /<name>CustomField<\/name>/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('scanDependencies flags a referenced Apex class as confirmed-missing only when the target list excludes it', () => {
   const groups = [
     {
@@ -196,6 +221,40 @@ test('safeSelections rejects an empty selection and validates member names', () 
   ]);
 });
 
+test('includeFieldLevelSecurity adds all profiles and permission sets when custom fields are selected', () => {
+  const result = includeFieldLevelSecurity([
+    { type: 'CustomField', members: ['Account.Customer_Tier__c'] },
+    { type: 'Profile', members: ['Admin'] },
+    { type: 'ApexClass', members: ['AccountService'] },
+  ]);
+  assert.equal(result.included, true);
+  assert.deepEqual(result.selections, [
+    { type: 'CustomField', members: ['Account.Customer_Tier__c'] },
+    { type: 'ApexClass', members: ['AccountService'] },
+    { type: 'Profile', members: ['*'] },
+    { type: 'PermissionSet', members: ['*'] },
+  ]);
+});
+
+test('includeFieldLevelSecurity leaves non-field selections unchanged', () => {
+  const selections = [{ type: 'ApexClass', members: ['AccountService'] }];
+  assert.deepEqual(includeFieldLevelSecurity(selections), { selections, included: false });
+});
+
+test('includeRequiredFieldSecurityKeys makes retrieved FLS rows mandatory with a selected field', () => {
+  const rows = [
+    { key: 'fields/Account.Tier', type: 'CustomField', fullName: 'Account.Tier__c', files: [], sourceExists: true, targetExists: false, status: 'new' as const },
+    { key: 'profiles/Admin', type: 'Profile', fullName: 'Admin', files: [], sourceExists: true, targetExists: true, status: 'changed' as const },
+    { key: 'permissionsets/Sales', type: 'PermissionSet', fullName: 'Sales', files: [], sourceExists: true, targetExists: true, status: 'changed' as const },
+    { key: 'classes/Helper', type: 'ApexClass', fullName: 'Helper', files: [], sourceExists: true, targetExists: true, status: 'identical' as const },
+  ];
+  assert.deepEqual(
+    [...includeRequiredFieldSecurityKeys(rows, new Set(['fields/Account.Tier']))].sort(),
+    ['fields/Account.Tier', 'permissionsets/Sales', 'profiles/Admin'],
+  );
+  assert.deepEqual([...includeRequiredFieldSecurityKeys(rows, new Set(['classes/Helper']))], ['classes/Helper']);
+});
+
 test('safeTestLevel falls back to RunLocalTests for unknown values, and safeTests filters bad identifiers', () => {
   assert.equal(safeTestLevel('NotReal'), 'RunLocalTests');
   assert.equal(safeTestLevel('RunSpecifiedTests'), 'RunSpecifiedTests');
@@ -211,6 +270,14 @@ test('confirmationPhrase and command builders produce the expected shape', () =>
   assert.deepEqual(buildDeployArgs('validate', '/tmp/scope', 'target-org', 'RunSpecifiedTests', ['T1', 'T2']), [
     'project', 'deploy', 'validate', '--metadata-dir', '/tmp/scope', '--target-org', 'target-org',
     '--test-level', 'RunSpecifiedTests', '--async', '--tests', 'T1', '--tests', 'T2',
+  ]);
+  assert.deepEqual(buildDeployArgs('validate', '/tmp/scope', 'target-org', 'NoTestRun', []), [
+    'project', 'deploy', 'validate', '--metadata-dir', '/tmp/scope', '--target-org', 'target-org',
+    '--test-level', 'RunLocalTests', '--async',
+  ]);
+  assert.deepEqual(buildDeployArgs('validate', '/tmp/scope', 'sandbox-org', 'NoTestRun', [], true), [
+    'project', 'deploy', 'start', '--metadata-dir', '/tmp/scope', '--target-org', 'sandbox-org',
+    '--test-level', 'NoTestRun', '--async', '--dry-run',
   ]);
   assert.deepEqual(buildDeployArgs('deploy', '/tmp/scope', 'target-org', 'NoTestRun', []), [
     'project', 'deploy', 'start', '--metadata-dir', '/tmp/scope', '--target-org', 'target-org',

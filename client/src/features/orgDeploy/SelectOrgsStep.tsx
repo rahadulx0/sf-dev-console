@@ -1,6 +1,7 @@
 import { ArrowRight, Cloud } from 'lucide-react';
 import { Callout, Empty, Field } from '../../ui/primitives';
 import { orgIdOf, type Org } from '../../types';
+import { SelectMenu } from '../../ui/SelectMenu';
 
 export function SelectOrgsStep({
   orgs,
@@ -82,21 +83,23 @@ function OrgPicker({
   return (
     <>
       <Field label="Choose an authorized org">
-        <select className="select" value={value} onChange={(event) => onChange(event.target.value)}>
-          <option value="" disabled>
-            Select an org…
-          </option>
-          {orgs.map((org) => {
+        <SelectMenu
+          value={value}
+          onChange={onChange}
+          placeholder="Select an org…"
+          ariaLabel="Choose an authorized org"
+          options={[...orgs].sort((left, right) => Number(left.isSandbox) - Number(right.isSandbox) || orgIdOf(left).localeCompare(orgIdOf(right))).map((org) => {
             const id = orgIdOf(org);
             const disabled = id === disabledId && disabledId !== value;
-            return (
-              <option key={org.username} value={id} disabled={disabled}>
-                {id} — {org.isSandbox ? 'Sandbox' : 'Production'} — {org.username}
-                {disabled ? ' (already chosen on the other side)' : ''}
-              </option>
-            );
+            return {
+              value: id,
+              label: id,
+              description: `${org.isSandbox ? 'Sandbox' : 'Production'} · ${org.username}${disabled ? ' · already selected' : ''}`,
+              disabled,
+              group: org.isSandbox ? 'Sandbox orgs' : 'Production orgs',
+            };
           })}
-        </select>
+        />
       </Field>
       {selected ? (
         <div className="row" style={{ borderTop: 0, paddingTop: 'var(--s-3)' }}>

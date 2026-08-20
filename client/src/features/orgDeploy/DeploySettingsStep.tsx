@@ -1,9 +1,10 @@
-import { ArrowLeft, LoaderCircle, Rocket, ShieldCheck } from 'lucide-react';
-import { Badge, Callout, Field } from '../../ui/primitives';
+import { ArrowLeft, LoaderCircle, Rocket, Search, ShieldCheck } from 'lucide-react';
+import { Badge, Callout, CodeBlock, Field } from '../../ui/primitives';
 import type { CompareResult, TestLevel } from '../../types';
+import { SelectMenu } from '../../ui/SelectMenu';
 
 const TEST_LEVELS: { value: TestLevel; label: string }[] = [
-  { value: 'NoTestRun', label: 'No test run' },
+  { value: 'NoTestRun', label: 'No test run (deploy only)' },
   { value: 'RunSpecifiedTests', label: 'Run specified tests' },
   { value: 'RunLocalTests', label: 'Run local tests' },
   { value: 'RunAllTestsInOrg', label: 'Run all tests in org' },
@@ -12,6 +13,7 @@ const TEST_LEVELS: { value: TestLevel; label: string }[] = [
 export function DeploySettingsStep({
   compare,
   selectedCount,
+  destructiveCount,
   selectedTypes,
   mode,
   setMode,
@@ -22,11 +24,15 @@ export function DeploySettingsStep({
   confirmation,
   setConfirmation,
   busy,
+  previewBusy,
+  preview,
+  onPreview,
   onBack,
   onExecute,
 }: {
   compare: CompareResult;
   selectedCount: number;
+  destructiveCount: number;
   selectedTypes: string[];
   mode: 'validate' | 'deploy';
   setMode: (mode: 'validate' | 'deploy') => void;
@@ -37,6 +43,9 @@ export function DeploySettingsStep({
   confirmation: string;
   setConfirmation: (value: string) => void;
   busy: boolean;
+  previewBusy: boolean;
+  preview: any;
+  onPreview: () => void;
   onBack: () => void;
   onExecute: () => void;
 }) {
@@ -69,6 +78,10 @@ export function DeploySettingsStep({
               <span>Metadata types</span>
               <b>{selectedTypes.length}</b>
             </div>
+            <div>
+              <span>Explicit deletions</span>
+              <b className={destructiveCount ? 'text-danger' : ''}>{destructiveCount}</b>
+            </div>
           </div>
           <div className="hint" style={{ marginTop: 'var(--s-4)' }}>
             {selectedTypes.map((type) => (
@@ -76,6 +89,16 @@ export function DeploySettingsStep({
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <div><h3>Prepared package preview</h3><p>Inspect the exact regular and destructive manifests that will be submitted to Salesforce.</p></div>
+          <button className="btn" onClick={onPreview} disabled={busy || previewBusy}>
+            {previewBusy ? <LoaderCircle className="spin" /> : <Search />} {preview ? 'Refresh preview' : 'Run preview'}
+          </button>
+        </div>
+        {preview ? <div className="panel-body"><CodeBlock>{JSON.stringify(preview, null, 2)}</CodeBlock></div> : null}
       </section>
 
       <section className="panel">
@@ -97,13 +120,16 @@ export function DeploySettingsStep({
 
           <div className="form-row" style={{ marginTop: 'var(--s-5)' }}>
             <Field label="Apex test level">
-              <select className="select" value={testLevel} onChange={(event) => setTestLevel(event.target.value as TestLevel)}>
-                {TEST_LEVELS.map((level) => (
-                  <option key={level.value} value={level.value}>
-                    {level.label}
-                  </option>
-                ))}
-              </select>
+              <SelectMenu
+                value={testLevel}
+                onChange={(value) => setTestLevel(value as TestLevel)}
+                ariaLabel="Deployment Apex test level"
+                options={TEST_LEVELS.map((level) => ({
+                  value: level.value,
+                  label: level.label,
+                  disabled: mode === 'validate' && level.value === 'NoTestRun',
+                }))}
+              />
             </Field>
             {testLevel === 'RunSpecifiedTests' ? (
               <Field label="Apex test classes" hint="Comma or space separated class names">
@@ -123,6 +149,7 @@ export function DeploySettingsStep({
               <div>
                 <b>Deploy to {compare.targetOrg}</b>
                 <small>
+                  {destructiveCount ? `This deployment will delete ${destructiveCount} target component${destructiveCount === 1 ? '' : 's'}. ` : ''}
                   Type <code>{phrase}</code> to enable this deployment.
                 </small>
               </div>

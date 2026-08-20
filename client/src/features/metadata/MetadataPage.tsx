@@ -22,6 +22,7 @@ import { VirtualList } from '../../ui/VirtualList';
 import { Modal } from '../../ui/Modal';
 import { useToast } from '../../ui/Toast';
 import { ManifestTools } from './ManifestTools';
+import { FlowExport } from './FlowExport';
 import type { Selection } from '../../types';
 
 const PRESETS = [
@@ -43,9 +44,11 @@ export default function MetadataPage() {
   const toast = useToast();
   const [expanded, setExpanded] = useState('');
   const [search, setSearch] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
   const [preview, setPreview] = useState('');
   const [retrieving, setRetrieving] = useState(false);
   const query = useDebounced(search);
+  const memberQuery = useDebounced(memberSearch);
 
   const types = useResource<{ types: { name: string }[] }>(
     orgKey(orgId, 'metadata-types'),
@@ -71,7 +74,7 @@ export default function MetadataPage() {
   }, [typeNames, query, expanded]);
 
   const members = useMemo(() => (components.data?.components ?? []).map((c) => c.fullName), [components.data]);
-  const shownMembers = useMemo(() => fuzzyStrings(members, query), [members, query]);
+  const shownMembers = useMemo(() => fuzzyStrings(members, memberQuery), [members, memberQuery]);
 
   const selectionMap = useMemo(() => new Map(selections.map((s) => [s.type, s.members])), [selections]);
 
@@ -135,6 +138,7 @@ export default function MetadataPage() {
             </div>
           </button>
         ))}
+        <FlowExport />
       </div>
 
       <div className="split split-metadata">
@@ -144,7 +148,7 @@ export default function MetadataPage() {
             <StaleBar updatedAt={types.updatedAt} refreshing={types.loading} onRefresh={types.refresh} />
           </PanelHead>
           <div className="panel-body">
-            <SearchInput value={search} onChange={setSearch} placeholder="Fuzzy search types and loaded components…" />
+            <SearchInput value={search} onChange={setSearch} placeholder="Search metadata types…" />
             {types.pending ? (
               <Loading label="Reading metadata from your org…" />
             ) : !shownTypes.length ? (
@@ -157,13 +161,24 @@ export default function MetadataPage() {
                   const all = selected.includes('*');
                   return (
                     <div className={`type${isOpen ? ' is-open' : ''}`} key={type}>
-                      <button className="type-head" onClick={() => setExpanded(isOpen ? '' : type)}>
+                      <button
+                        className="type-head"
+                        onClick={() => {
+                          setExpanded(isOpen ? '' : type);
+                          setMemberSearch('');
+                        }}
+                      >
                         <ChevronRight className={isOpen ? 'is-rotated' : ''} />
                         <span className="mono">{type}</span>
                         {selected.length ? <Badge tone="accent">{all ? 'All' : selected.length}</Badge> : null}
                       </button>
                       {isOpen ? (
                         <div className="type-body">
+                          <SearchInput
+                            value={memberSearch}
+                            onChange={setMemberSearch}
+                            placeholder={`Search ${type} components by API name…`}
+                          />
                           <div className="type-toolbar">
                             <button className="btn btn-link" onClick={() => toggleMember(type, '*')}>
                               {all ? 'Clear type' : 'Select entire type'}
@@ -171,7 +186,7 @@ export default function MetadataPage() {
                             <small>
                               {components.pending
                                 ? 'Loading components…'
-                                : `${shownMembers.length}${query ? ' matching' : ''} of ${members.length} components`}
+                                : `${shownMembers.length}${memberQuery ? ' matching' : ''} of ${members.length} components`}
                             </small>
                           </div>
                           {components.pending ? (

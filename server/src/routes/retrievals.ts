@@ -69,7 +69,7 @@ export async function retrievalRoutes(app: FastifyInstance) {
     return reply.status(202).send(record);
   });
 
-  app.post<{ Body: { org: string; orgLabel?: string; selections: Selection[]; apiVersion?: string } }>('/api/retrievals', async (req, reply) => {
+  app.post<{ Body: { org: string; orgLabel?: string; selections: Selection[]; apiVersion?: string; downloadName?: string } }>('/api/retrievals', async (req, reply) => {
     const org = safeOrg(req.body.org);
     const id = randomUUID();
     const manifestDir = path.join(workspace, 'manifest', id);
@@ -88,6 +88,9 @@ export async function retrievalRoutes(app: FastifyInstance) {
       componentCount: req.body.selections.reduce((n, s) => n + s.members.length, 0),
       manifestPath,
       outputPath: path.join(outputDir, 'metadata.zip'),
+      downloadName: typeof req.body.downloadName === 'string' && /^[A-Za-z0-9_.-]{1,120}\.zip$/.test(req.body.downloadName)
+        ? req.body.downloadName
+        : undefined,
     };
     updateState((draft) => draft.retrievals.unshift(record));
     trackRetrieval(id, [
@@ -105,7 +108,7 @@ export async function retrievalRoutes(app: FastifyInstance) {
     if (!record?.outputPath) return reply.code(404).send({ error: 'Download not found' });
     return reply
       .type('application/zip')
-      .header('Content-Disposition', `attachment; filename="${record.orgLabel}-metadata.zip"`)
+      .header('Content-Disposition', `attachment; filename="${record.downloadName || `${record.orgLabel}-metadata.zip`}"`)
       .send(await readFile(record.outputPath));
   });
 
