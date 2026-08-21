@@ -13,6 +13,7 @@ export const ROUTES: Record<PageKey, ComponentType> = {
   query: lazy(() => import('../features/query/QueryPage')),
   inspector: lazy(() => import('../features/inspector/InspectorPage')),
   apex: lazy(() => import('../features/apex/ApexPage')),
+  editor: lazy(() => import('../features/editor/EditorPage')),
   tests: lazy(() => import('../features/tests/TestsPage')),
   logs: lazy(() => import('../features/logs/LogsPage')),
   org: lazy(() => import('../features/org/OrgPage')),

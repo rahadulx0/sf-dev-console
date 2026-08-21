@@ -61,6 +61,52 @@ export const safeProjectSource = async (projectPath: unknown, sourcePath: unknow
   await stat(source);
   return { project, source };
 };
+/** Metadata types the in-app code editor supports, and how each is laid out on disk in Metadata API format. */
+export const EDITOR_TYPES: Record<string, { dir: string; suffix?: string; bundle?: boolean }> = {
+  ApexClass: { dir: 'classes', suffix: '.cls' },
+  ApexTrigger: { dir: 'triggers', suffix: '.trigger' },
+  ApexPage: { dir: 'pages', suffix: '.page' },
+  ApexComponent: { dir: 'components', suffix: '.component' },
+  LightningComponentBundle: { dir: 'lwc', bundle: true },
+  AuraDefinitionBundle: { dir: 'aura', bundle: true },
+};
+
+export const safeEditorType = (value: unknown): string => {
+  if (typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(EDITOR_TYPES, value)) {
+    throw new Error('Unsupported editor metadata type');
+  }
+  return value;
+};
+
+/**
+ * Validates the name of a component that already exists in the org (open/read/save/delete).
+ * Managed-package components are common and legitimately look like `Namespace__LocalName` —
+ * double underscores and an uppercase namespace are normal there, for bundles too, so this only
+ * enforces the charset that's safe to use as a filesystem path segment and a CLI argument.
+ */
+export const safeComponentName = (_type: string, value: unknown): string => {
+  if (typeof value !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,159}$/.test(value)) throw new Error('Invalid component name');
+  return value;
+};
+
+/** Stricter rule for a name the user is choosing right now — Salesforce's actual limits for a fresh dev name. */
+export const safeNewComponentName = (type: string, value: unknown): string => {
+  const name = safeComponentName(type, value);
+  if (name.includes('__') || name.endsWith('_')) throw new Error('Invalid component name');
+  if (EDITOR_TYPES[type]?.bundle && !/^[a-z]/.test(name)) throw new Error('Component names must start with a lowercase letter');
+  return name;
+};
+
+/** Resolves a client-supplied relative file path against a component's root, rejecting traversal. */
+export const safeComponentFile = (root: string, relativePath: unknown) => {
+  if (typeof relativePath !== 'string' || !relativePath || relativePath.length > 255 || relativePath.includes('\0')) {
+    throw new Error('Invalid file path');
+  }
+  const resolved = path.resolve(root, relativePath);
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) throw new Error('File must be inside the component');
+  return resolved;
+};
+
 export const normalizeOrg = (o: any): SfOrg => ({
   alias: o.alias,
   username: o.username,

@@ -5,6 +5,7 @@ import {
   Cloud,
   Code2,
   Database,
+  FileCode2,
   Gauge,
   GitCompare,
   History,
@@ -29,6 +30,7 @@ export type PageKey =
   | 'query'
   | 'inspector'
   | 'apex'
+  | 'editor'
   | 'tests'
   | 'logs'
   | 'org'
@@ -85,6 +87,12 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Code2,
     pages: [
       { key: 'apex', label: 'Anonymous Apex', description: 'Execute Apex through the local CLI', icon: Code2 },
+      {
+        key: 'editor',
+        label: 'Code editor',
+        description: 'Browse, edit, and deploy Apex, LWC, Aura, and Visualforce source',
+        icon: FileCode2,
+      },
       { key: 'tests', label: 'Apex tests', description: 'Run tests and collect coverage', icon: TestTube2 },
       { key: 'logs', label: 'Debug logs', description: 'Inspect recent execution logs', icon: ScrollText },
     ],
