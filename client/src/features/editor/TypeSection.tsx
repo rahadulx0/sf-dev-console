@@ -23,6 +23,11 @@ type ExplorerRow =
   | { kind: 'file'; fullName: string; file: string }
   | { kind: 'add'; fullName: string; fileKind: string };
 
+type ListedComponent = {
+  fullName: string;
+  manageableState?: string;
+};
+
 export function TypeSection({
   def,
   orgId,
@@ -58,13 +63,16 @@ export function TypeSection({
   onDelete: (type: string, fullName: string) => void;
   onAddFile: (type: string, fullName: string, kind: string) => void;
 }) {
-  const components = useResource<{ components: { fullName: string }[] }>(
+  const components = useResource<{ components: ListedComponent[] }>(
     open ? orgKey(orgId, 'metadata', def.type) : null,
     (signal) => api(`${orgPath(orgId)}/metadata/${def.type}`, { signal }),
     { ttl: 300_000 },
   );
   const names = useMemo(
-    () => (components.data?.components ?? []).map((component) => component.fullName).sort((left, right) => left.localeCompare(right)),
+    () => (components.data?.components ?? [])
+      .filter((component) => component.manageableState !== 'installed')
+      .map((component) => component.fullName)
+      .sort((left, right) => left.localeCompare(right)),
     [components.data],
   );
   const shown = useMemo(() => (query ? fuzzyStrings(names, query) : names), [names, query]);

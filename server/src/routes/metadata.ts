@@ -62,7 +62,12 @@ export async function metadataRoutes(app: FastifyInstance) {
     });
     return {
       components: (Array.isArray(result) ? result : result.metadata || [])
-        .map((m: any) => ({ fullName: m.fullName, type: m.type, namespacePrefix: m.namespacePrefix }))
+        .map((m: any) => ({
+          fullName: m.fullName,
+          type: m.type,
+          namespacePrefix: m.namespacePrefix,
+          manageableState: m.manageableState,
+        }))
         .filter((m: any) => m.fullName),
     };
   });
