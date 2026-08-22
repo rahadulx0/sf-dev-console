@@ -83,7 +83,7 @@ export function DeploySettingsStep({
               <b className={destructiveCount ? 'text-danger' : ''}>{destructiveCount}</b>
             </div>
           </div>
-          <div className="hint" style={{ marginTop: 'var(--s-4)' }}>
+          <div className="hint mt-4">
             {selectedTypes.map((type) => (
               <Badge key={type}>{type}</Badge>
             ))}
@@ -109,7 +109,7 @@ export function DeploySettingsStep({
           </div>
         </div>
         <div className="panel-body">
-          <div className="action-row" style={{ marginTop: 0 }}>
+          <div className="action-row mt-0">
             <button className={`btn${mode === 'validate' ? ' btn-primary' : ''}`} onClick={() => setMode('validate')}>
               <ShieldCheck /> Validate only
             </button>
@@ -118,7 +118,7 @@ export function DeploySettingsStep({
             </button>
           </div>
 
-          <div className="form-row" style={{ marginTop: 'var(--s-5)' }}>
+          <div className="form-row mt-5">
             <Field label="Apex test level">
               <SelectMenu
                 value={testLevel}

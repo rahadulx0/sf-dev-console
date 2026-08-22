@@ -9,7 +9,7 @@ import { VirtualList } from '../../ui/VirtualList';
 import { FileChip } from './FileChip';
 import { componentKey, fileLabel, tabKey, type EditorTypeDef } from './types';
 
-const TREE_ROW_HEIGHT = 28;
+const TREE_ROW_HEIGHT = 22;
 const EMPTY_KINDS: string[] = [];
 
 const BUNDLE_FILE_KINDS: Record<string, string[]> = {
@@ -19,7 +19,6 @@ const BUNDLE_FILE_KINDS: Record<string, string[]> = {
 
 type ExplorerRow =
   | { kind: 'component'; fullName: string }
-  | { kind: 'actions'; fullName: string }
   | { kind: 'file'; fullName: string; file: string }
   | { kind: 'add'; fullName: string; fileKind: string };
 
@@ -87,8 +86,10 @@ export function TypeSection({
       const entry = componentFiles[key];
       if (!entry) continue;
 
-      next.push({ kind: 'actions', fullName });
-      for (const file of [...entry.files].sort(compareBundleFiles)) next.push({ kind: 'file', fullName, file });
+      const visibleFiles = def.type === 'ApexClass' || def.type === 'ApexTrigger'
+        ? entry.files.filter((file) => !file.toLowerCase().endsWith('-meta.xml'))
+        : entry.files;
+      for (const file of [...visibleFiles].sort(compareBundleFiles)) next.push({ kind: 'file', fullName, file });
       if (def.bundle) {
         for (const fileKind of bundleKinds) {
           const suffix = fileKind === 'STYLE' ? '.css' : '';
@@ -106,29 +107,27 @@ export function TypeSection({
 
     if (row.kind === 'component') {
       return (
-        <button
+        <div
           className={`explorer-row explorer-component${isOpen ? ' is-open' : ''}`}
           key={`component:${row.fullName}`}
-          onClick={() => onToggleComponent(def.type, row.fullName)}
-          aria-expanded={isOpen}
-          title={isOpen ? `Collapse ${row.fullName}` : `Reveal files in ${row.fullName}`}
         >
-          <ChevronRight className="explorer-chevron" />
-          {isOpen ? <FolderOpen className="explorer-folder" /> : <Folder className="explorer-folder" />}
-          <span className="mono">{row.fullName}</span>
+          <button
+            className="explorer-component-main"
+            onClick={() => onToggleComponent(def.type, row.fullName)}
+            aria-expanded={isOpen}
+            title={isOpen ? `Collapse ${row.fullName}` : `Reveal files in ${row.fullName}`}
+          >
+            <ChevronRight className="explorer-chevron" />
+            {isOpen ? <FolderOpen className="explorer-folder" /> : <Folder className="explorer-folder" />}
+            <span>{row.fullName}</span>
+          </button>
           {busy ? <LoaderCircle className="spin explorer-busy" /> : null}
-        </button>
-      );
-    }
-
-    if (row.kind === 'actions') {
-      return (
-        <div className="explorer-row explorer-actions" key={`actions:${row.fullName}`} aria-label={`Actions for ${row.fullName}`}>
-          <span>Bundle actions</span>
-          <button className="btn btn-ghost btn-icon btn-sm" title="Refresh from org" onClick={() => onRefresh(def.type, row.fullName)}><RefreshCw /></button>
-          <button className="btn btn-ghost btn-icon btn-sm" title="Backup as ZIP" onClick={() => onBackup(def.type, row.fullName)}><Archive /></button>
-          <button className="btn btn-ghost btn-icon btn-sm" title="Rename" onClick={() => onRename(def.type, row.fullName)}><Pencil /></button>
-          <button className="btn btn-ghost btn-icon btn-sm" title="Delete" onClick={() => onDelete(def.type, row.fullName)}><Trash2 /></button>
+          <span className="explorer-component-actions" aria-label={`Actions for ${row.fullName}`}>
+            <button title="Refresh from org" aria-label={`Refresh ${row.fullName} from org`} onClick={() => onRefresh(def.type, row.fullName)}><RefreshCw /></button>
+            <button title="Backup as ZIP" aria-label={`Back up ${row.fullName} as ZIP`} onClick={() => onBackup(def.type, row.fullName)}><Archive /></button>
+            <button title="Rename" aria-label={`Rename ${row.fullName}`} onClick={() => onRename(def.type, row.fullName)}><Pencil /></button>
+            <button title="Delete" aria-label={`Delete ${row.fullName}`} onClick={() => onDelete(def.type, row.fullName)}><Trash2 /></button>
+          </span>
         </div>
       );
     }
@@ -165,7 +164,7 @@ export function TypeSection({
     <div className={`editor-section${open ? ' is-open' : ''}`}>
       <button className="editor-section-head" onClick={onToggleOpen} aria-expanded={open}>
         <ChevronRight className={open ? 'is-rotated' : ''} />
-        <def.icon />
+        {open ? <FolderOpen className="editor-section-folder" /> : <Folder className="editor-section-folder" />}
         <span>{def.label}</span>
         {open && !components.pending ? <span className="editor-section-count">({shown.length}/{names.length})</span> : null}
       </button>

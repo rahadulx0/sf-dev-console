@@ -40,7 +40,7 @@ export default function PackagesPage() {
           <Loading label="Loading packages…" />
         ) : items.length ? (
           <>
-            <div style={{ maxWidth: 320, marginBottom: 'var(--s-4)' }}>
+            <div className="filter-bar">
               <SearchInput value={search} onChange={setSearch} placeholder="Filter packages…" />
             </div>
             <div className="card-grid">

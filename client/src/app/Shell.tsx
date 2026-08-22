@@ -1,5 +1,5 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
-import { Cloud, Menu, Moon, RefreshCw, Search, Sun, X } from 'lucide-react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronRight, Cloud, Menu, Moon, RefreshCw, Search, Sun, X } from 'lucide-react';
 import { NAV_GROUPS, isPageKey, pageDef } from './pages';
 import { ROUTES } from './routes';
 import { CommandPalette } from './CommandPalette';
@@ -9,17 +9,20 @@ import { OrgSwitcher } from './OrgSwitcher';
 import { useAppState } from './state';
 import { useTheme } from './theme';
 import { useRoute, navigate } from '../lib/router';
-import { useHotkey } from '../lib/hooks';
+import { useHotkey, useLocalStorage } from '../lib/hooks';
+import { fuzzySearch } from '../lib/fuzzy';
 import { invalidate } from '../lib/resource';
 import { Loading } from '../ui/primitives';
 import type { SystemStatus } from '../types';
 
-export function Shell({ status }: { status: SystemStatus }) {
+export function Shell({ status: _status }: { status: SystemStatus }) {
   const { org, orgId, selectedCount } = useAppState();
   const { theme, toggle } = useTheme();
   const route = useRoute();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [navQuery, setNavQuery] = useState('');
+  const [expandedGroups, setExpandedGroups] = useLocalStorage<Record<string, boolean>>('sf-navigation-groups', {});
   const menuButton = useRef<HTMLButtonElement>(null);
   const drawerClose = useRef<HTMLButtonElement>(null);
   const drawerPanel = useRef<HTMLElement>(null);
@@ -27,9 +30,27 @@ export function Shell({ status }: { status: SystemStatus }) {
   const page = isPageKey(route.page) ? route.page : 'overview';
   const definition = pageDef(page);
   const Page = ROUTES[page];
+  const activeGroupLabel = NAV_GROUPS.find((group) => group.pages.some((item) => item.key === page))?.label ?? '';
+  const filteredGroups = useMemo(() => {
+    if (!navQuery.trim()) return NAV_GROUPS;
+    return NAV_GROUPS.map((group) => ({
+      ...group,
+      pages: fuzzySearch(group.pages, navQuery, (item) => [item.label, item.description, group.label]),
+    })).filter((group) => group.pages.length > 0);
+  }, [navQuery]);
+  const visibleDestinationCount = filteredGroups.reduce((total, group) => total + group.pages.length, 0);
 
   useHotkey('k', () => setPalette((open) => !open), { meta: true, allowInInput: true });
   useEffect(() => setDrawer(false), [page]);
+  useEffect(() => {
+    if (!drawer || !activeGroupLabel) return;
+    setExpandedGroups((current) => current[activeGroupLabel] === false
+      ? { ...current, [activeGroupLabel]: true }
+      : current);
+  }, [activeGroupLabel, drawer, setExpandedGroups]);
+  useEffect(() => {
+    if (!drawer) setNavQuery('');
+  }, [drawer]);
   useEffect(clearReloadGuard, []);
   useEffect(() => {
     document.title = `${definition.label} · SF Dev Console`;
@@ -72,7 +93,7 @@ export function Shell({ status }: { status: SystemStatus }) {
     <div className={`app${drawer ? ' is-drawer-open' : ''}`}>
       <div className="main">
         <main className="page" aria-label={`${definition.label} workspace`}>
-          <div className="page-stack">
+          <div className="page-stack workspace-stack">
             <ErrorBoundary resetKey={page}>
               <Suspense fallback={<Loading label={`Loading ${definition.label.toLowerCase()}…`} />}>
                 <Page />
@@ -99,7 +120,7 @@ export function Shell({ status }: { status: SystemStatus }) {
             <small>{definition.description}</small>
           </span>
           <span className="statusbar-divider" />
-          <span className="statusbar-context mono" title={org.username}>{orgId}</span>
+          <span className="statusbar-context mono" title={org.username}>{org.username || orgId}</span>
           <span className="statusbar-spacer" />
           <button className="statusbar-command" onClick={() => setPalette(true)} title="Open command palette">
             <Search />
@@ -125,7 +146,6 @@ export function Shell({ status }: { status: SystemStatus }) {
           >
             {theme === 'dark' ? <Sun /> : <Moon />}
           </button>
-          <span className="statusbar-runtime">Node {status.node}</span>
         </footer>
       </div>
 
@@ -135,7 +155,7 @@ export function Shell({ status }: { status: SystemStatus }) {
           <span className="brandmark"><Cloud /></span>
           <span className="sidebar-brand-copy">
             <b>SF Dev Console</b>
-            <small>Developer workbench</small>
+            <small>{definition.label} workspace</small>
           </span>
           <button ref={drawerClose} className="btn btn-ghost btn-icon" onClick={closeDrawer} aria-label="Close navigation">
             <X />
@@ -143,25 +163,45 @@ export function Shell({ status }: { status: SystemStatus }) {
         </div>
 
         <div className="sidebar-context">
-          <span className="sidebar-label">Active environment</span>
+          <span className="sidebar-label">Current Salesforce org</span>
           <OrgSwitcher />
-          <button className="drawer-command" onClick={() => { setDrawer(false); setPalette(true); }}>
+          <div className="sidebar-search">
             <Search />
-            <span>Find a tool or action</span>
-            <kbd>Ctrl K</kbd>
-          </button>
+            <input
+              value={navQuery}
+              onChange={(event) => setNavQuery(event.target.value)}
+              placeholder="Filter navigation…"
+              aria-label="Filter navigation destinations"
+              autoComplete="off"
+            />
+            {navQuery ? (
+              <button type="button" onClick={() => setNavQuery('')} aria-label="Clear navigation filter">
+                <X />
+              </button>
+            ) : <small>{visibleDestinationCount} tools</small>}
+          </div>
         </div>
 
         <nav className="sidebar-nav" aria-label="Workspaces">
-          {NAV_GROUPS.map((group) => {
+          {filteredGroups.map((group) => {
             const GroupIcon = group.icon;
+            const isExpanded = navQuery.trim() ? true : expandedGroups[group.label] !== false;
+            const containsActivePage = group.label === activeGroupLabel;
             return (
-              <section className="nav-group" key={group.label}>
-                <div className="nav-group-label">
+              <section className={`nav-group${containsActivePage ? ' has-active' : ''}`} key={group.label}>
+                <button
+                  type="button"
+                  className="nav-group-heading"
+                  onClick={() => setExpandedGroups((current) => ({ ...current, [group.label]: !isExpanded }))}
+                  aria-expanded={isExpanded}
+                  disabled={Boolean(navQuery.trim())}
+                >
+                  <ChevronRight className="nav-group-chevron" />
                   <GroupIcon />
                   <span>{group.label}</span>
-                </div>
-                <div className="nav-grid">
+                  <small>{group.pages.length}</small>
+                </button>
+                <div className="nav-grid" hidden={!isExpanded}>
                   {group.pages.map(({ key, label, description, icon: Icon }) => (
                     <button
                       key={key}
@@ -170,7 +210,7 @@ export function Shell({ status }: { status: SystemStatus }) {
                       aria-current={page === key ? 'page' : undefined}
                       title={description}
                     >
-                      <span className="nav-tile"><Icon /></span>
+                      <span className="nav-item-icon"><Icon /></span>
                       <span className="nav-item-copy">
                         <b>{label}</b>
                         <small>{description}</small>
@@ -182,10 +222,20 @@ export function Shell({ status }: { status: SystemStatus }) {
               </section>
             );
           })}
+          {visibleDestinationCount === 0 ? (
+            <div className="sidebar-nav-empty">
+              <Search />
+              <b>No destinations found</b>
+              <small>Try a page, workflow, or tool name.</small>
+            </div>
+          ) : null}
         </nav>
         <div className="sidebar-foot">
-          <span><i className="dot dot-success" /> Local backend online</span>
-          <span className="mono">127.0.0.1</span>
+          <button className="sidebar-palette-command" onClick={() => { setDrawer(false); setPalette(true); }}>
+            <Search />
+            <span>All commands</span>
+            <kbd>Ctrl K</kbd>
+          </button>
         </div>
       </aside>
 

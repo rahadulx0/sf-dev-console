@@ -60,7 +60,7 @@ export default function LogsPage() {
           <Loading label="Loading debug logs…" />
         ) : items.length ? (
           <>
-            <div style={{ maxWidth: 320, marginBottom: 'var(--s-4)' }}>
+            <div className="filter-bar">
               <SearchInput value={search} onChange={setSearch} placeholder="Filter by user, operation, or status…" />
             </div>
             <div className="table-wrap">

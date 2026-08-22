@@ -47,7 +47,7 @@ export default function LimitsPage() {
           <Loading label="Loading API limits…" />
         ) : rows.length ? (
           <>
-            <div style={{ maxWidth: 320, marginBottom: 'var(--s-4)' }}>
+            <div className="filter-bar">
               <SearchInput value={search} onChange={setSearch} placeholder="Filter limits…" />
             </div>
             <div className="limit-grid">

@@ -19,7 +19,7 @@ import { invalidate } from '../../lib/resource';
 import { orgKey, useAppState } from '../../app/state';
 import { useDebounced, useLocalStorage } from '../../lib/hooks';
 import { navigate } from '../../lib/router';
-import { Empty, Loading, Panel, PanelHead, SearchInput } from '../../ui/primitives';
+import { Empty, Loading, Panel, SearchInput } from '../../ui/primitives';
 import { ConfirmDialog } from '../../ui/Modal';
 import { useToast } from '../../ui/Toast';
 import { CodeEditor } from './CodeEditor';
@@ -39,7 +39,7 @@ export default function EditorPage() {
 
   const [search, setSearch] = useState('');
   const query = useDebounced(search);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ [EDITOR_TYPE_DEFS[0].type]: true });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set());
   const [componentFiles, setComponentFiles] = useState<Record<string, { files: string[]; mainFile?: string }>>({});
   const [busyComponent, setBusyComponent] = useState<string | null>(null);
@@ -343,12 +343,11 @@ export default function EditorPage() {
       <div className={`code-editor-page${zen ? ' is-zen' : ''}`}>
         {!zen ? (
           <Panel className="code-editor-sidebar">
-            <PanelHead title="Components" description={`Live from ${orgId}`}>
-              <button className="btn btn-primary btn-icon" onClick={() => setNewOpen(true)} title="New component" aria-label="New component">
-                <FilePlus2 />
-              </button>
-            </PanelHead>
             <div className="panel-body">
+              <button className="editor-new-item" onClick={() => setNewOpen(true)}>
+                <FilePlus2 />
+                <span>New Item</span>
+              </button>
               <SearchInput value={search} onChange={setSearch} placeholder="Search components…" />
               <div className="editor-sections">
                 {EDITOR_TYPE_DEFS.map((def) => (

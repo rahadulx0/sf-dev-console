@@ -55,26 +55,32 @@ export interface NavGroup {
   pages: PageDef[];
 }
 
-/** Related workflows are presented as submenus in the navigation rail. */
+/** Existing destinations, grouped by the workflow they support. */
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Home',
+    label: 'Workspace',
     icon: LayoutDashboard,
     pages: [
       { key: 'overview', label: 'Overview', description: 'Workspace summary and shortcuts', icon: LayoutDashboard },
     ],
   },
   {
-    label: 'Metadata',
-    icon: Box,
+    label: 'Development tools',
+    icon: Code2,
     pages: [
-      { key: 'metadata', label: 'Metadata', description: 'Browse, select, and retrieve metadata', icon: Box },
-      { key: 'saved', label: 'Saved selections', description: 'Reusable component sets', icon: PackageCheck },
-      { key: 'history', label: 'Retrieval history', description: 'Metadata jobs stored on this device', icon: History },
+      {
+        key: 'editor',
+        label: 'Code editor',
+        description: 'Browse, edit, and deploy Apex, LWC, Aura, and Visualforce source',
+        icon: FileCode2,
+      },
+      { key: 'apex', label: 'Anonymous Apex', description: 'Execute Apex through the local CLI', icon: Code2 },
+      { key: 'tests', label: 'Apex tests', description: 'Run tests and collect coverage', icon: TestTube2 },
+      { key: 'logs', label: 'Debug logs', description: 'Inspect recent execution logs', icon: ScrollText },
     ],
   },
   {
-    label: 'Data',
+    label: 'Data & schema',
     icon: Database,
     pages: [
       { key: 'objects', label: 'Objects', description: 'Schema and record counts', icon: Database },
@@ -83,27 +89,12 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Apex',
-    icon: Code2,
+    label: 'Metadata',
+    icon: Box,
     pages: [
-      { key: 'apex', label: 'Anonymous Apex', description: 'Execute Apex through the local CLI', icon: Code2 },
-      {
-        key: 'editor',
-        label: 'Code editor',
-        description: 'Browse, edit, and deploy Apex, LWC, Aura, and Visualforce source',
-        icon: FileCode2,
-      },
-      { key: 'tests', label: 'Apex tests', description: 'Run tests and collect coverage', icon: TestTube2 },
-      { key: 'logs', label: 'Debug logs', description: 'Inspect recent execution logs', icon: ScrollText },
-    ],
-  },
-  {
-    label: 'Org management',
-    icon: Cloud,
-    pages: [
-      { key: 'org', label: 'Org information', description: 'Connection and instance details', icon: Cloud },
-      { key: 'limits', label: 'Org limits', description: 'API and platform capacity', icon: Gauge },
-      { key: 'packages', label: 'Installed packages', description: 'Managed and unlocked packages', icon: Package },
+      { key: 'metadata', label: 'Metadata browser', description: 'Browse, select, and retrieve metadata', icon: Box },
+      { key: 'saved', label: 'Saved selections', description: 'Reusable component sets', icon: PackageCheck },
+      { key: 'history', label: 'Retrieval history', description: 'Metadata jobs stored on this device', icon: History },
     ],
   },
   {
@@ -120,7 +111,16 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Activity & help',
+    label: 'Organization',
+    icon: Cloud,
+    pages: [
+      { key: 'org', label: 'Org information', description: 'Connection and instance details', icon: Cloud },
+      { key: 'limits', label: 'Org limits', description: 'API and platform capacity', icon: Gauge },
+      { key: 'packages', label: 'Installed packages', description: 'Managed and unlocked packages', icon: Package },
+    ],
+  },
+  {
+    label: 'Utilities',
     icon: CircleHelp,
     pages: [
       { key: 'activities', label: 'Operation history', description: 'Recent local API operations', icon: Activity },

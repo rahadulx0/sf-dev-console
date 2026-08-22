@@ -84,7 +84,7 @@ export function AuthorizeOrgDialog({ onClose, onAuthorized }: { onClose: () => v
         ))}
       </div>
 
-      <div className="form-row" style={{ marginTop: 'var(--s-4)' }}>
+      <div className="form-row mt-4">
         <Field label="Org alias" hint="Recommended">
           <input
             className="input"
@@ -104,7 +104,7 @@ export function AuthorizeOrgDialog({ onClose, onAuthorized }: { onClose: () => v
         </Field>
       </div>
 
-      <div className="choice-grid" style={{ marginTop: 'var(--s-4)' }}>
+      <div className="choice-grid mt-4">
         <label className="choice">
           <input type="checkbox" checked={setDefault} onChange={(event) => setSetDefault(event.target.checked)} />
           <span>
@@ -122,7 +122,7 @@ export function AuthorizeOrgDialog({ onClose, onAuthorized }: { onClose: () => v
       </div>
 
       {error ? (
-        <div className="callout callout-danger" style={{ marginTop: 'var(--s-4)' }}>
+        <div className="callout callout-danger mt-4">
           <span />
           <div>
             <b>Authorization failed</b>
@@ -132,7 +132,7 @@ export function AuthorizeOrgDialog({ onClose, onAuthorized }: { onClose: () => v
       ) : null}
 
       {busy ? (
-        <div className="callout callout-accent" style={{ marginTop: 'var(--s-4)' }}>
+        <div className="callout callout-accent mt-4">
           <LoaderCircle className="spin" />
           <div>
             <b>Complete login in your browser</b>

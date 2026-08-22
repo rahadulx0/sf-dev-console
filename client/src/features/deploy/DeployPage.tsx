@@ -85,7 +85,7 @@ export default function DeployPage() {
           confirmation, which the server re-checks before running anything.
         </Callout>
 
-        <div className="form-row" style={{ marginTop: 'var(--s-4)' }}>
+        <div className="form-row mt-4">
           <Field label="Salesforce project path" hint="Directory containing sfdx-project.json">
             <input
               className="input input-mono"

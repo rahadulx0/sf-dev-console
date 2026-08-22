@@ -290,7 +290,7 @@ export default function QueryPage() {
             <span>{tooling ? 'Tooling API' : 'Standard API'}</span>
           </div>
           {queryRunning ? (
-            <div className="loading" style={{ justifyContent: 'flex-start', padding: 'var(--s-3) 0 0' }}>
+            <div className="loading loading-inline">
               <LoaderCircle className="spin" /> Fetching records from Salesforce… {(elapsedMs / 1000).toFixed(1)}s elapsed
             </div>
           ) : null}

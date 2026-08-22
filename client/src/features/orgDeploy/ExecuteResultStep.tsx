@@ -173,7 +173,7 @@ export function ExecuteResultStep({
             </div>
           ) : null}
 
-          <div className="row-list" style={{ marginTop: 'var(--s-4)' }}>
+          <div className="row-list mt-4">
             {log.map((entry, i) => (
               <div className="row" key={i}>
                 <div className="row-main">

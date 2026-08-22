@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: s
             <AlertTriangle />
             <b>This page could not be displayed</b>
             <p>{error.message}</p>
-            <button className="btn" onClick={() => window.location.reload()} style={{ marginTop: 'var(--s-3)' }}>
+            <button className="btn" onClick={() => window.location.reload()}>
               <RefreshCw /> Reload the application
             </button>
           </div>

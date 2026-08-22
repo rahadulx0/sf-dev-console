@@ -82,12 +82,12 @@ export default function ObjectsPage() {
           ) : (
             <VirtualList
               items={shown}
-              itemHeight={36}
+              itemHeight={30}
               height={520}
               className="object-list"
               emptyState={<Empty title="No matching objects" text="Try a shorter or different search." />}
               renderItem={(name) => (
-                <div className={`object-row${selectedObject === name ? ' is-active' : ''}`} key={name} style={{ height: 36 }}>
+                <div className={`object-row${selectedObject === name ? ' is-active' : ''}`} key={name} style={{ height: 30 }}>
                   <input
                     type="checkbox"
                     checked={chosen.includes(name)}

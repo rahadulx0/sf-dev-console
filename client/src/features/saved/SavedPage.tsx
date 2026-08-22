@@ -76,7 +76,7 @@ export default function SavedPage() {
         {sets.pending ? (
           <Loading label="Loading saved selections…" />
         ) : items.length ? (
-          <div className="row-list" style={{ marginTop: 'var(--s-4)' }}>
+          <div className="row-list mt-4">
             {items.map((set) => (
               <div className="row" key={set.id}>
                 <span className="row-icon is-success">

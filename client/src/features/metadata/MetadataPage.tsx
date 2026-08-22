@@ -194,12 +194,12 @@ export default function MetadataPage() {
                           ) : (
                             <VirtualList
                               items={shownMembers}
-                              itemHeight={32}
+                              itemHeight={26}
                               height={320}
                               className="member-list"
                               emptyState={<Empty title="No components" text="This type has no components in the org." />}
                               renderItem={(member) => (
-                                <label className="member" key={member} style={{ height: 32 }}>
+                                <label className="member" key={member} style={{ height: 26 }}>
                                   <input
                                     type="checkbox"
                                     checked={all || selected.includes(member)}
