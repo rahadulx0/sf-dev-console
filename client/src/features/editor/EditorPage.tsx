@@ -40,7 +40,7 @@ export default function EditorPage() {
   const [search, setSearch] = useState('');
   const query = useDebounced(search);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ [EDITOR_TYPE_DEFS[0].type]: true });
-  const [expandedComponent, setExpandedComponent] = useState<string | null>(null);
+  const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set());
   const [componentFiles, setComponentFiles] = useState<Record<string, { files: string[]; mainFile?: string }>>({});
   const [busyComponent, setBusyComponent] = useState<string | null>(null);
 
@@ -96,7 +96,6 @@ export default function EditorPage() {
       );
       setComponentFiles((current) => ({ ...current, [key]: { files: response.files, mainFile: response.mainFile } }));
       pushLog({ kind: 'SUCCESS', component: fullName, category: type, message: 'Fetched successfully.' });
-      if (response.mainFile) await openFile(type, fullName, response.mainFile);
       return response;
     } catch (error) {
       pushLog({ kind: 'ERROR', component: fullName, category: type, message: errorMessage(error) });
@@ -144,11 +143,15 @@ export default function EditorPage() {
 
   async function toggleComponent(type: string, fullName: string) {
     const key = componentKey(type, fullName);
-    if (expandedComponent === key) {
-      setExpandedComponent(null);
+    if (expandedComponents.has(key)) {
+      setExpandedComponents((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
       return;
     }
-    setExpandedComponent(key);
+    setExpandedComponents((current) => new Set(current).add(key));
     if (!componentFiles[key]) await openComponent(type, fullName);
   }
 
@@ -197,7 +200,7 @@ export default function EditorPage() {
       refreshList(type);
       setOpenSections((current) => ({ ...current, [type]: true }));
       setComponentFiles((current) => ({ ...current, [componentKey(type, fullName)]: { files: response.files, mainFile: response.mainFile } }));
-      setExpandedComponent(componentKey(type, fullName));
+      setExpandedComponents((current) => new Set(current).add(componentKey(type, fullName)));
       setNewOpen(false);
       if (response.mainFile) await openFile(type, fullName, response.mainFile);
       const ok = logDeployOutcome(response.deploy, fullName, type, 'Created and deployed successfully.');
@@ -236,7 +239,12 @@ export default function EditorPage() {
         next[componentKey(response.type, response.fullName)] = { files: response.files, mainFile: response.mainFile };
         return next;
       });
-      setExpandedComponent(componentKey(response.type, response.fullName));
+      setExpandedComponents((current) => {
+        const next = new Set(current);
+        next.delete(componentKey(renameTarget.type, renameTarget.fullName));
+        next.add(componentKey(response.type, response.fullName));
+        return next;
+      });
       setRenameTarget(null);
       setRenameValue('');
       logDeployOutcome(response.created, response.fullName, response.type, `Renamed from ${renameTarget.fullName}.`);
@@ -268,6 +276,11 @@ export default function EditorPage() {
       setComponentFiles((current) => {
         const next = { ...current };
         delete next[componentKey(deleteTarget.type, deleteTarget.fullName)];
+        return next;
+      });
+      setExpandedComponents((current) => {
+        const next = new Set(current);
+        next.delete(componentKey(deleteTarget.type, deleteTarget.fullName));
         return next;
       });
       const target = deleteTarget;
@@ -346,7 +359,7 @@ export default function EditorPage() {
                     query={query}
                     open={!!openSections[def.type]}
                     onToggleOpen={() => setOpenSections((current) => ({ ...current, [def.type]: !current[def.type] }))}
-                    expandedComponent={expandedComponent}
+                    expandedComponents={expandedComponents}
                     componentFiles={componentFiles}
                     busyComponent={busyComponent}
                     activeTabKey={activeTabKey}

@@ -14,6 +14,7 @@ export function VirtualList<T>({
   threshold = 60,
   className = '',
   emptyState,
+  resetKey,
 }: {
   items: T[];
   itemHeight: number;
@@ -23,6 +24,8 @@ export function VirtualList<T>({
   threshold?: number;
   className?: string;
   emptyState?: ReactNode;
+  /** Defaults to the items array. Supply a stable key when rows can expand in place. */
+  resetKey?: unknown;
 }) {
   const [scrollTop, setScrollTop] = useState(0);
   const container = useRef<HTMLDivElement>(null);
@@ -31,7 +34,7 @@ export function VirtualList<T>({
   useEffect(() => {
     setScrollTop(0);
     if (container.current) container.current.scrollTop = 0;
-  }, [items]);
+  }, [resetKey ?? items]);
 
   if (!items.length) return <div className={className}>{emptyState}</div>;
 

@@ -7,8 +7,9 @@ const STORAGE_KEY = 'sf-theme';
 function initialTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'dark' || stored === 'light') return stored;
-  // Lightning Experience is a light interface, so that is what opens by default.
-  return 'light';
+  // The console is designed as a dark desktop workbench. Light remains available as an
+  // accessibility/preference option, but a new installation opens in the primary theme.
+  return 'dark';
 }
 
 const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({ theme: 'dark', toggle: () => {} });

@@ -1,16 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import {
-  Cloud,
-  ChevronDown,
-  Menu,
-  Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
-  RefreshCw,
-  Search,
-  Sun,
-} from 'lucide-react';
+import { Cloud, Menu, Moon, RefreshCw, Search, Sun, X } from 'lucide-react';
 import { NAV_GROUPS, isPageKey, pageDef } from './pages';
 import { ROUTES } from './routes';
 import { CommandPalette } from './CommandPalette';
@@ -20,7 +9,7 @@ import { OrgSwitcher } from './OrgSwitcher';
 import { useAppState } from './state';
 import { useTheme } from './theme';
 import { useRoute, navigate } from '../lib/router';
-import { useHotkey, useLocalStorage } from '../lib/hooks';
+import { useHotkey } from '../lib/hooks';
 import { invalidate } from '../lib/resource';
 import { Loading } from '../ui/primitives';
 import type { SystemStatus } from '../types';
@@ -29,58 +18,15 @@ export function Shell({ status }: { status: SystemStatus }) {
   const { org, orgId, selectedCount } = useAppState();
   const { theme, toggle } = useTheme();
   const route = useRoute();
-  const [collapsed, setCollapsed] = useLocalStorage('sf-sidebar-collapsed', false);
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
-  const [navTooltip, setNavTooltip] = useState<{ label: string; top: number; left: number } | null>(null);
-  const [navFlyout, setNavFlyout] = useState<{ label: string; top: number; left: number } | null>(null);
-  const flyoutCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [openNavGroups, setOpenNavGroups] = useLocalStorage<string[]>('sf-sidebar-open-groups', ['Metadata']);
-
-  function showNavTooltip(event: React.SyntheticEvent<HTMLButtonElement>, label: string) {
-    // Below the drawer breakpoint the rail shows full labels even while "collapsed", so a
-    // tooltip would just duplicate visible text.
-    if (!collapsed || window.innerWidth <= 860) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    setNavTooltip({ label, top: rect.top + rect.height / 2, left: rect.right + 10 });
-  }
-  const hideNavTooltip = () => setNavTooltip(null);
-  useEffect(() => {
-    hideNavTooltip();
-    setNavFlyout(null);
-  }, [collapsed]);
-
-  function openNavFlyout(event: React.SyntheticEvent<HTMLButtonElement>, label: string) {
-    if (!collapsed || window.innerWidth <= 860) return;
-    if (flyoutCloseTimer.current) clearTimeout(flyoutCloseTimer.current);
-    const rect = event.currentTarget.getBoundingClientRect();
-    const itemCount = NAV_GROUPS.find((group) => group.label === label)?.pages.length ?? 1;
-    const estimatedHeight = 50 + itemCount * 38;
-    setNavFlyout({ label, top: Math.max(8, Math.min(rect.top, window.innerHeight - estimatedHeight - 8)), left: rect.right + 8 });
-  }
-
-  function keepNavFlyoutOpen() {
-    if (flyoutCloseTimer.current) clearTimeout(flyoutCloseTimer.current);
-  }
-
-  function closeNavFlyoutSoon() {
-    if (flyoutCloseTimer.current) clearTimeout(flyoutCloseTimer.current);
-    flyoutCloseTimer.current = setTimeout(() => setNavFlyout(null), 120);
-  }
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const drawerClose = useRef<HTMLButtonElement>(null);
+  const drawerPanel = useRef<HTMLElement>(null);
 
   const page = isPageKey(route.page) ? route.page : 'overview';
   const definition = pageDef(page);
   const Page = ROUTES[page];
-  const activeGroup = NAV_GROUPS.find((group) => group.pages.some((item) => item.key === page));
-
-  useEffect(() => {
-    if (!activeGroup || activeGroup.pages.length === 1) return;
-    setOpenNavGroups((groups) => (groups.includes(activeGroup.label) ? groups : [...groups, activeGroup.label]));
-  }, [activeGroup?.label, setOpenNavGroups]);
-
-  function toggleNavGroup(label: string) {
-    setOpenNavGroups((groups) => (groups.includes(label) ? groups.filter((item) => item !== label) : [...groups, label]));
-  }
 
   useHotkey('k', () => setPalette((open) => !open), { meta: true, allowInInput: true });
   useEffect(() => setDrawer(false), [page]);
@@ -89,127 +35,43 @@ export function Shell({ status }: { status: SystemStatus }) {
     document.title = `${definition.label} · SF Dev Console`;
   }, [definition.label]);
 
+  useEffect(() => {
+    if (!drawer) return;
+    drawerClose.current?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setDrawer(false);
+        requestAnimationFrame(() => menuButton.current?.focus());
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(
+        drawerPanel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), [tabindex="0"]') ?? [],
+      ).filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [drawer]);
+
+  function closeDrawer() {
+    setDrawer(false);
+    requestAnimationFrame(() => menuButton.current?.focus());
+  }
+
   return (
-    <div className={`app${collapsed ? ' is-collapsed' : ''}${drawer ? ' is-drawer-open' : ''}`}>
-      <div className="sidebar-scrim" onClick={() => setDrawer(false)} />
-
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <span className="brandmark">
-            <Cloud />
-          </span>
-          <b>SF Dev Console</b>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={() => setCollapsed(!collapsed)}
-            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          >
-            {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-          </button>
-        </div>
-
-        <OrgSwitcher />
-
-        <nav className="sidebar-nav">
-          {NAV_GROUPS.map((group) => {
-            const isSingle = group.pages.length === 1;
-            const isOpen = openNavGroups.includes(group.label);
-            const isGroupActive = group.pages.some((item) => item.key === page);
-            const GroupIcon = group.icon;
-
-            if (isSingle) {
-              const [{ key, label }] = group.pages;
-              return (
-                <button
-                  key={key}
-                  className={`nav-item nav-primary${page === key ? ' is-active' : ''}`}
-                  onClick={() => navigate(key)}
-                  onMouseEnter={(event) => showNavTooltip(event, label)}
-                  onMouseLeave={hideNavTooltip}
-                  onFocus={(event) => showNavTooltip(event, label)}
-                  onBlur={hideNavTooltip}
-                  aria-label={label}
-                  aria-current={page === key ? 'page' : undefined}
-                >
-                  <span className="nav-tile"><GroupIcon /></span>
-                  <span>{label}</span>
-                </button>
-              );
-            }
-
-            return (
-              <div className={`nav-group${isOpen ? ' is-open' : ''}`} key={group.label}>
-                <button
-                  className={`nav-group-trigger${isGroupActive ? ' is-active' : ''}`}
-                  onClick={(event) => collapsed && window.innerWidth > 860
-                    ? openNavFlyout(event, group.label)
-                    : toggleNavGroup(group.label)}
-                  onMouseEnter={(event) => openNavFlyout(event, group.label)}
-                  onMouseLeave={closeNavFlyoutSoon}
-                  onFocus={(event) => openNavFlyout(event, group.label)}
-                  onBlur={closeNavFlyoutSoon}
-                  aria-expanded={collapsed && window.innerWidth > 860 ? navFlyout?.label === group.label : isOpen}
-                  aria-label={group.label}
-                >
-                  <span className="nav-tile"><GroupIcon /></span>
-                  <span>{group.label}</span>
-                  <ChevronDown className="nav-group-chevron" />
-                </button>
-                <div className="nav-submenu">
-              {group.pages.map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  className={`nav-item${page === key ? ' is-active' : ''}`}
-                  onClick={() => navigate(key)}
-                  onMouseEnter={(event) => showNavTooltip(event, label)}
-                  onMouseLeave={hideNavTooltip}
-                  onFocus={(event) => showNavTooltip(event, label)}
-                  onBlur={hideNavTooltip}
-                  aria-label={label}
-                  aria-current={page === key ? 'page' : undefined}
-                >
-                  <span className="nav-tile">
-                    <Icon />
-                  </span>
-                  <span>{label}</span>
-                  {key === 'metadata' && selectedCount > 0 ? <span className="badge badge-accent">{selectedCount}</span> : null}
-                </button>
-              ))}
-                </div>
-            </div>
-            );
-          })}
-        </nav>
-      </aside>
-
+    <div className={`app${drawer ? ' is-drawer-open' : ''}`}>
       <div className="main">
-        <header className="topbar">
-          <button className="btn btn-ghost btn-icon show-mobile" onClick={() => setDrawer(true)} aria-label="Open navigation">
-            <Menu />
-          </button>
-          <div className="topbar-title">
-            <h2>{definition.label}</h2>
-            <p>{definition.description}</p>
-          </div>
-          <div className="topbar-spacer" />
-          <button className="palette-trigger" onClick={() => setPalette(true)}>
-            <Search />
-            <span>Search…</span>
-            <span className="kbd">⌘K</span>
-          </button>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={() => invalidate(`org:${orgId}`)}
-            title="Re-read cached data for this org"
-          >
-            <RefreshCw />
-          </button>
-          <button className="btn btn-ghost btn-icon" onClick={toggle} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-            {theme === 'dark' ? <Sun /> : <Moon />}
-          </button>
-        </header>
-
-        <main className="page">
+        <main className="page" aria-label={`${definition.label} workspace`}>
           <div className="page-stack">
             <ErrorBoundary resetKey={page}>
               <Suspense fallback={<Loading label={`Loading ${definition.label.toLowerCase()}…`} />}>
@@ -222,61 +84,112 @@ export function Shell({ status }: { status: SystemStatus }) {
         <JobStrip />
 
         <footer className="statusbar">
-          <b>{definition.label}</b>
-          <span className="statusbar-sep">·</span>
-          <span>{orgId}</span>
-          <span className="statusbar-sep">·</span>
-          <span className="hide-mobile">{org.username}</span>
+          <button
+            ref={menuButton}
+            className="statusbar-menu"
+            onClick={() => setDrawer(true)}
+            aria-label="Open application navigation"
+            aria-expanded={drawer}
+          >
+            <Menu />
+            <span>Menu</span>
+          </button>
+          <span className="statusbar-page" title={definition.description}>
+            <b>{definition.label}</b>
+            <small>{definition.description}</small>
+          </span>
+          <span className="statusbar-divider" />
+          <span className="statusbar-context mono" title={org.username}>{orgId}</span>
           <span className="statusbar-spacer" />
-          <span className="status-connected">
+          <button className="statusbar-command" onClick={() => setPalette(true)} title="Open command palette">
+            <Search />
+            <span>Commands</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <span className="status-connected" title={`Connected as ${org.username}`}>
             <i className="dot dot-success" /> Connected
           </span>
-          <span className="statusbar-sep">·</span>
-          <span className="hide-mobile">Node {status.node}</span>
+          <button
+            className="statusbar-action"
+            onClick={() => invalidate(`org:${orgId}`)}
+            title="Re-read cached data for this org"
+            aria-label="Refresh org data"
+          >
+            <RefreshCw />
+          </button>
+          <button
+            className="statusbar-action"
+            onClick={toggle}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? <Sun /> : <Moon />}
+          </button>
+          <span className="statusbar-runtime">Node {status.node}</span>
         </footer>
       </div>
 
-      {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
-      {navTooltip
-        ? createPortal(
-            <div className="nav-tooltip-portal" style={{ top: navTooltip.top, left: navTooltip.left }}>
-              {navTooltip.label}
-            </div>,
-            document.body,
-          )
-        : null}
-      {navFlyout
-        ? (() => {
-            const group = NAV_GROUPS.find((item) => item.label === navFlyout.label);
-            if (!group) return null;
-            return createPortal(
-              <div
-                className="nav-flyout"
-                style={{ top: navFlyout.top, left: navFlyout.left }}
-                onMouseEnter={keepNavFlyoutOpen}
-                onMouseLeave={closeNavFlyoutSoon}
-              >
-                <div className="nav-flyout-title">{group.label}</div>
-                {group.pages.map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    className={`nav-flyout-item${page === key ? ' is-active' : ''}`}
-                    onClick={() => {
-                      setNavFlyout(null);
-                      navigate(key);
-                    }}
-                    aria-current={page === key ? 'page' : undefined}
-                  >
-                    <Icon />
-                    <span>{label}</span>
-                    {key === 'metadata' && selectedCount > 0 ? <span className="badge badge-accent">{selectedCount}</span> : null}
-                  </button>
-                ))}
-              </div>,
-              document.body,
+      <button className="sidebar-scrim" onClick={closeDrawer} aria-label="Close navigation" tabIndex={drawer ? 0 : -1} />
+      <aside ref={drawerPanel} className="sidebar" role="dialog" aria-modal="true" aria-label="Application navigation" aria-hidden={!drawer}>
+        <div className="sidebar-brand">
+          <span className="brandmark"><Cloud /></span>
+          <span className="sidebar-brand-copy">
+            <b>SF Dev Console</b>
+            <small>Developer workbench</small>
+          </span>
+          <button ref={drawerClose} className="btn btn-ghost btn-icon" onClick={closeDrawer} aria-label="Close navigation">
+            <X />
+          </button>
+        </div>
+
+        <div className="sidebar-context">
+          <span className="sidebar-label">Active environment</span>
+          <OrgSwitcher />
+          <button className="drawer-command" onClick={() => { setDrawer(false); setPalette(true); }}>
+            <Search />
+            <span>Find a tool or action</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+
+        <nav className="sidebar-nav" aria-label="Workspaces">
+          {NAV_GROUPS.map((group) => {
+            const GroupIcon = group.icon;
+            return (
+              <section className="nav-group" key={group.label}>
+                <div className="nav-group-label">
+                  <GroupIcon />
+                  <span>{group.label}</span>
+                </div>
+                <div className="nav-grid">
+                  {group.pages.map(({ key, label, description, icon: Icon }) => (
+                    <button
+                      key={key}
+                      className={`nav-item${page === key ? ' is-active' : ''}`}
+                      onClick={() => navigate(key)}
+                      aria-current={page === key ? 'page' : undefined}
+                      title={description}
+                    >
+                      <span className="nav-tile"><Icon /></span>
+                      <span className="nav-item-copy">
+                        <b>{label}</b>
+                        <small>{description}</small>
+                      </span>
+                      {key === 'metadata' && selectedCount > 0 ? <span className="badge badge-accent">{selectedCount}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              </section>
             );
-          })()
-        : null}
+          })}
+        </nav>
+        <div className="sidebar-foot">
+          <span><i className="dot dot-success" /> Local backend online</span>
+          <span className="mono">127.0.0.1</span>
+        </div>
+      </aside>
+
+      {palette ? <CommandPalette onClose={() => setPalette(false)} /> : null}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { invalidate } from '../../lib/resource';
 import { useAppState } from '../../app/state';
 import { useLocalStorage } from '../../lib/hooks';
 import { useToast } from '../../ui/Toast';
-import type { CompareResult, OrgDeployRecord, Selection, TestLevel } from '../../types';
+import { orgIdOf, type CompareResult, type OrgDeployRecord, type Selection, type TestLevel } from '../../types';
 import { SelectOrgsStep } from './SelectOrgsStep';
 import { SelectMetadataStep } from './SelectMetadataStep';
 import { CompareReviewStep } from './CompareReviewStep';
@@ -46,14 +46,18 @@ export default function OrgDeployPage() {
 
   const unlocked = useMemo(() => {
     const set = new Set<StepKey>(['orgs']);
-    if (sourceOrg && targetOrg && sourceOrg !== targetOrg) set.add('metadata');
+    const source = orgs.find((org) => orgIdOf(org) === sourceOrg);
+    const target = orgs.find((org) => orgIdOf(org) === targetOrg);
+    const sourceReady = !!source && (!source.connectedStatus || source.connectedStatus.toLowerCase() === 'connected');
+    const targetReady = !!target && (!target.connectedStatus || target.connectedStatus.toLowerCase() === 'connected');
+    if (sourceReady && targetReady && sourceOrg !== targetOrg) set.add('metadata');
     if (compare) {
       set.add('review');
       set.add('settings');
     }
     if (deployResult) set.add('result');
     return set;
-  }, [sourceOrg, targetOrg, compare, deployResult]);
+  }, [sourceOrg, targetOrg, orgs, compare, deployResult]);
 
   async function runCompare() {
     setComparing(true);

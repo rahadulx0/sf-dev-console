@@ -1,10 +1,56 @@
-node_modules
-dist
-.DS_Store
-*.log
-.sf-dev-console
-server/data
-server/workspace
+# Dependencies
+node_modules/
+
+# Compiled output and installers
+**/dist/
+release/
+out/
 *.tsbuildinfo
-release
-desktop/assets/icon.iconset
+desktop/assets/icon.iconset/
+
+# Application runtime data and generated Salesforce workspaces
+.sf-dev-console/
+server/data/
+server/workspace/
+.sf/
+.sfdx/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Test output and caches
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.cache/
+tmp/
+temp/
+
+# Local browser/UI diagnostics created during development
+/.chrome-*/
+/.ui-*.png
+/.codex-*
+
+# Logs and process diagnostics
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

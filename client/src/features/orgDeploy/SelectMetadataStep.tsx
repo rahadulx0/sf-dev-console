@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronRight, GitCompare, LoaderCircle, PackageCheck, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, ChevronRight, GitCompare, LoaderCircle, PackageCheck, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { api, orgPath } from '../../lib/api';
 import { orgKey } from '../../app/state';
 import { useDebounced } from '../../lib/hooks';
@@ -79,11 +79,30 @@ export function SelectMetadataStep({
           <StaleBar updatedAt={types.updatedAt} refreshing={types.loading} onRefresh={types.refresh} />
         </PanelHead>
         <div className="panel-body">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search metadata types…" />
-          {types.pending ? (
+          {types.error && !types.data ? (
+            <div className="metadata-load-error">
+              <Callout icon={AlertTriangle} tone="danger" title={`Could not load metadata types from ${sourceOrg}`}>
+                {types.error.message}
+              </Callout>
+              <div className="action-row">
+                <button className="btn" onClick={onBack}>
+                  <ArrowLeft /> Choose another org
+                </button>
+                <button className="btn btn-primary" onClick={types.refresh} disabled={types.loading}>
+                  {types.loading ? <LoaderCircle className="spin" /> : <RefreshCw />} Retry metadata types
+                </button>
+              </div>
+            </div>
+          ) : (
+            <SearchInput value={search} onChange={setSearch} placeholder="Search metadata types…" />
+          )}
+          {types.error && !types.data ? null : types.pending ? (
             <Loading label="Reading metadata from the source org…" />
           ) : !shownTypes.length ? (
-            <Empty title="No matching types" text="Try a shorter or different search." />
+            <Empty
+              title={query ? 'No matching types' : 'No metadata types returned'}
+              text={query ? 'Try a shorter or different search.' : 'Refresh the source org or choose another authorized org.'}
+            />
           ) : (
             <div className="type-list">
               {shownTypes.map((type) => {
@@ -120,7 +139,16 @@ export function SelectMetadataStep({
                               : `${shownMembers.length}${memberQuery ? ' matching' : ''} of ${members.length} components`}
                           </small>
                         </div>
-                        {components.pending ? (
+                        {components.error && !components.data ? (
+                          <div className="metadata-load-error is-compact">
+                            <Callout icon={AlertTriangle} tone="danger" title={`Could not load ${type} components`}>
+                              {components.error.message}
+                            </Callout>
+                            <button className="btn btn-sm" onClick={components.refresh} disabled={components.loading}>
+                              {components.loading ? <LoaderCircle className="spin" /> : <RefreshCw />} Retry
+                            </button>
+                          </div>
+                        ) : components.pending ? (
                           <Loading label="Loading components…" />
                         ) : (
                           <VirtualList

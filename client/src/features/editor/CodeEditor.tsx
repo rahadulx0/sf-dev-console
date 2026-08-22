@@ -25,9 +25,10 @@ import {
 } from '@codemirror/commands';
 import { bracketMatching, foldGutter, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
-import { highlightSelectionMatches, openSearchPanel, searchKeymap } from '@codemirror/search';
+import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from '@codemirror/search';
 import { editorHighlightStyle, editorTheme } from './editorTheme';
 import { languageExtension, type EditorLanguage } from './language';
+import { createVsCodeSearchPanel } from './searchPanel';
 
 /** The handful of VS Code shortcuts that aren't already covered by CodeMirror's own defaultKeymap/searchKeymap. */
 const vscodeKeymap: KeyBinding[] = [
@@ -94,6 +95,7 @@ export function CodeEditor({
         highlightActiveLine(),
         highlightActiveLineGutter(),
         highlightSelectionMatches(),
+        search({ top: true, createPanel: createVsCodeSearchPanel }),
         editorTheme,
         fontSizeCompartment.of(fontSizeTheme(fontSize)),
         syntaxHighlighting(editorHighlightStyle, { fallback: true }),

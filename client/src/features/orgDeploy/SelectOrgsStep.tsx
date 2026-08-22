@@ -19,7 +19,11 @@ export function SelectOrgsStep({
   onNext: () => void;
 }) {
   const same = !!sourceOrg && !!targetOrg && sourceOrg === targetOrg;
-  const canContinue = !!sourceOrg && !!targetOrg && !same;
+  const source = orgs.find((org) => orgIdOf(org) === sourceOrg);
+  const target = orgs.find((org) => orgIdOf(org) === targetOrg);
+  const sourceReady = !!source && isConnected(source);
+  const targetReady = !!target && isConnected(target);
+  const canContinue = sourceReady && targetReady && !same;
 
   if (!orgs.length) {
     return <Empty icon={Cloud} title="No authorized orgs found" text="Authorize an org from the Overview page first." />;
@@ -59,6 +63,18 @@ export function SelectOrgsStep({
         </Callout>
       ) : null}
 
+      {sourceOrg && !sourceReady ? (
+        <Callout icon={Cloud} tone="danger" title={`Source org ${sourceOrg} is not connected`}>
+          {source?.connectedStatus || 'This saved org is no longer available in Salesforce CLI.'} Choose another org or reauthorize it before loading metadata.
+        </Callout>
+      ) : null}
+
+      {targetOrg && !targetReady ? (
+        <Callout icon={Cloud} tone="danger" title={`Target org ${targetOrg} is not connected`}>
+          {target?.connectedStatus || 'This saved org is no longer available in Salesforce CLI.'} Choose another org or reauthorize it before comparing metadata.
+        </Callout>
+      ) : null}
+
       <div className="action-row">
         <button className="btn btn-primary" disabled={!canContinue} onClick={onNext}>
           Continue to metadata <ArrowRight />
@@ -90,11 +106,13 @@ function OrgPicker({
           ariaLabel="Choose an authorized org"
           options={[...orgs].sort((left, right) => Number(left.isSandbox) - Number(right.isSandbox) || orgIdOf(left).localeCompare(orgIdOf(right))).map((org) => {
             const id = orgIdOf(org);
-            const disabled = id === disabledId && disabledId !== value;
+            const unavailable = !isConnected(org);
+            const alreadySelected = id === disabledId && disabledId !== value;
+            const disabled = alreadySelected || unavailable;
             return {
               value: id,
               label: id,
-              description: `${org.isSandbox ? 'Sandbox' : 'Production'} · ${org.username}${disabled ? ' · already selected' : ''}`,
+              description: `${org.isSandbox ? 'Sandbox' : 'Production'} · ${org.username}${alreadySelected ? ' · already selected' : unavailable ? ' · reauthorization required' : ''}`,
               disabled,
               group: org.isSandbox ? 'Sandbox orgs' : 'Production orgs',
             };
@@ -116,4 +134,8 @@ function OrgPicker({
       ) : null}
     </>
   );
+}
+
+function isConnected(org: Org) {
+  return !org.connectedStatus || org.connectedStatus.toLowerCase() === 'connected';
 }
