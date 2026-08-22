@@ -147,7 +147,7 @@ export default function OrgDeployPage() {
     : [];
 
   return (
-    <>
+    <div className="org-deploy-workspace">
       <nav className="step-tabs">
         {STEPS.map((definition) => (
           <button
@@ -223,6 +223,6 @@ export default function OrgDeployPage() {
       ) : null}
 
       <HistoryPanel />
-    </>
+    </div>
   );
 }

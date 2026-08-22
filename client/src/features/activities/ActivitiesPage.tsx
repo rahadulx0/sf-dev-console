@@ -63,7 +63,7 @@ export default function ActivitiesPage() {
   const visible = items.slice((page - 1) * size, page * size);
 
   return (
-    <Panel>
+    <Panel className="workspace-panel">
       <PanelHead
         title="Local operation history"
         description="The latest API operations on this device. No credentials or command arguments are stored."
@@ -76,7 +76,7 @@ export default function ActivitiesPage() {
           <Loading label="Loading operation history…" />
         ) : items.length ? (
           <>
-            <div className="row-list">
+            <div className="row-list workspace-data-region">
               {visible.map((item) => (
                 <div className="row" key={item.id}>
                   <span className={`row-icon ${item.statusCode < 400 ? 'is-success' : 'is-failed'}`}>

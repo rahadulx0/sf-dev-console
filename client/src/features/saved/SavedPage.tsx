@@ -46,7 +46,7 @@ export default function SavedPage() {
   }
 
   return (
-    <Panel>
+    <Panel className="workspace-panel">
       <PanelHead title="Saved selections" description="Reusable metadata groups stored only on this device.">
         <Badge>{items.length} saved</Badge>
       </PanelHead>
@@ -76,7 +76,7 @@ export default function SavedPage() {
         {sets.pending ? (
           <Loading label="Loading saved selections…" />
         ) : items.length ? (
-          <div className="row-list mt-4">
+          <div className="row-list workspace-data-region mt-4">
             {items.map((set) => (
               <div className="row" key={set.id}>
                 <span className="row-icon is-success">

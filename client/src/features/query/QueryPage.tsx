@@ -298,7 +298,7 @@ export default function QueryPage() {
       </Panel>
 
       {result ? (
-        <Panel>
+        <Panel className="workspace-panel query-results-panel">
           <PanelHead title="Query results" description={resultDescription}>
             <button className="btn" onClick={copyRows} disabled={!records.length}>
               <Copy /> Copy {selected.length ? 'selected' : 'all'}
@@ -317,7 +317,7 @@ export default function QueryPage() {
           <div className="panel-body">
             {records.length ? (
               <>
-                <div className="table-wrap" style={{ maxHeight: '52vh' }}>
+                <div className="table-wrap workspace-data-region">
                   <table className="data-table">
                     <thead>
                       <tr>

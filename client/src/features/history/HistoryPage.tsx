@@ -26,7 +26,7 @@ export default function HistoryPage() {
   }, [running, retrievals.refresh]);
 
   return (
-    <Panel>
+    <Panel className="workspace-panel">
       <PanelHead title="Metadata retrievals" description="Jobs and downloadable output stored in your device workspace.">
         <Badge>{items.length} jobs</Badge>
         <StaleBar updatedAt={retrievals.updatedAt} refreshing={retrievals.loading} onRefresh={retrievals.refresh} />
@@ -35,7 +35,7 @@ export default function HistoryPage() {
         {retrievals.pending ? (
           <Loading label="Loading retrieval history…" />
         ) : items.length ? (
-          <div className="row-list">
+          <div className="row-list workspace-data-region">
             {items.map((item) => (
               <div className="row" key={item.id}>
                 <span className={`row-icon is-${item.status}`}>

@@ -71,7 +71,7 @@ export default function ApexPage() {
 
   return (
     <>
-    <Panel>
+    <Panel className={`workspace-panel apex-workspace${result ? ' has-result' : ''}`}>
       <PanelHead title="Anonymous Apex" description="Execute an Apex script through the local Salesforce CLI.">
         <span className="hint-inline">
           <span className="kbd">⌘↵</span> run

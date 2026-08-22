@@ -2121,6 +2121,9 @@ button.result-note {
 .workspace-stack > .split { min-height: 0; align-items: stretch; flex: 1; }
 .workspace-stack > .split > .panel { display: flex; flex-direction: column; }
 .workspace-stack > .split > .panel > .panel-body { min-height: 0; flex: 1; }
+.split-objects > .panel:first-child > .panel-body { display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+.split-objects > .panel:first-child .object-list { width: 100%; min-height: 0; margin-top: 0; }
+.split-objects > .panel:first-child .object-list + .btn { margin-top: 0; flex: 0 0 auto; }
 
 .type-list { margin-top: 5px; border-radius: var(--r-sm); }
 .type-head { gap: 5px; min-height: 28px; padding: 2px 6px; }
@@ -2189,3 +2192,109 @@ button.result-note {
 @media (max-width: 820px) {
   .split-metadata, .split-objects { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Interaction consistency audit -----------------------------------------
+ * Feature workspaces stay dense, while every interactive row remains easy to
+ * acquire with a mouse or tablet pointer. Structural spacing stays compact. */
+.type-head,
+.object-row,
+.comparison-type,
+.comparison-list-actions,
+.suggestions button,
+.flow-version-row { min-height: var(--control-h-sm); }
+
+.member { min-height: 29px; }
+.member:hover { background: var(--surface-hover); border-radius: var(--r-sm); }
+
+.code-editor-sidebar .search-input { height: var(--control-h-sm); }
+.editor-section-head { min-height: 27px; }
+.code-editor-toolbar { min-height: var(--toolbar-h); padding: 4px 6px; }
+.logs-panel-head { height: 36px; min-height: 36px; padding: 0 7px; }
+.explorer-component-actions { height: 26px; }
+.explorer-component-actions button { width: 26px; height: 26px; }
+.comparison-remove { width: var(--control-h-sm); height: var(--control-h-sm); }
+
+.comparison-toolbar { min-height: var(--toolbar-h); }
+.comparison-filter-tabs button { height: var(--control-h-sm); border-radius: var(--r-md); }
+.comparison-table th { height: var(--table-head-h); }
+.comparison-table td { height: var(--table-row-h); }
+.capability-table th { height: var(--table-head-h); }
+.capability-table td { height: var(--table-row-h); }
+
+.result-head,
+.save-bar,
+.record-toolbar,
+.comparison-footer { min-height: var(--toolbar-h); }
+
+@media (pointer: coarse) {
+  :root {
+    --control-h: 38px;
+    --control-h-sm: 34px;
+    --row-h: 42px;
+    --tab-h: 40px;
+    --table-row-h: 38px;
+  }
+}
+
+/* Dense page tools and scroll ownership ---------------------------------- */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+  min-height: var(--toolbar-h);
+  margin-bottom: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.filter-bar .search-input { width: min(380px, 100%); }
+.workspace-table { max-height: calc(100vh - var(--statusbar-h) - 100px); }
+.workspace-stack > .panel:only-child > .panel-body { flex: 1; min-height: 0; overflow: auto; }
+
+/* Full-height data workspaces -------------------------------------------- */
+.workspace-panel { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.workspace-panel > .panel-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; flex: 1; }
+.workspace-data-region { min-height: 0; max-height: none; overflow: auto; flex: 1; }
+.workspace-panel > .panel-body > .pagination { flex: 0 0 auto; }
+.workspace-panel > .panel-body > .empty,
+.workspace-panel > .panel-body > .loading { flex: 1; }
+
+.split-objects > .object-detail-panel { min-height: 0; }
+.split-objects > .object-detail-panel > .panel-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; flex: 1; }
+.split-objects > .object-detail-panel .workspace-data-region { width: 100%; }
+
+.query-results-panel { min-height: 180px; }
+.query-results-panel .panel-body > :first-child:last-child { flex: 1; }
+
+.metadata-browser-panel { display: flex; flex-direction: column; min-height: 0; }
+.metadata-browser-panel > .panel-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; flex: 1; }
+.metadata-browser-panel .type-list { min-height: 0; overflow: auto; flex: 1; }
+
+.apex-workspace .editor { min-height: 220px; resize: none; flex: 1; }
+.apex-workspace.has-result .editor { min-height: 160px; flex: 0 1 42%; }
+.apex-workspace .result { display: flex; flex-direction: column; min-height: 120px; overflow: hidden; flex: 1; }
+.apex-workspace .result .code-block { min-height: 0; max-height: none; overflow: auto; flex: 1; }
+.apex-workspace > .panel-body > .hint { flex: 0 0 auto; }
+
+.inspector-workspace .field-list { min-height: 0; overflow: auto; flex: 1; }
+.inspector-workspace > .panel-body > .empty { flex: 1; }
+.limit-grid.workspace-data-region { align-content: start; }
+
+/* Multi-step deployment owns the remaining viewport explicitly. */
+.org-deploy-workspace {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.org-deploy-workspace > .page-stack { height: 100%; min-height: 0; overflow: auto; }
+.org-deploy-workspace > .page-stack > .two-col,
+.org-deploy-workspace > .page-stack > .split { min-height: 0; flex: 1; }
+.org-deploy-workspace > .page-stack > .action-row:last-child { margin-top: auto; padding: 4px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.org-deploy-workspace .comparison-workspace { height: 100%; min-height: 0; }
+.org-deploy-workspace .comparison-layout { height: calc(100% - var(--toolbar-h) - var(--control-h-sm) - 12px); min-height: 0; }

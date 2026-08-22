@@ -1,4 +1,4 @@
-import { useEffect, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ComponentType, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 export function Modal({
@@ -20,25 +20,49 @@ export function Modal({
   children: ReactNode;
   closeDisabled?: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+    ) ?? []).filter((element) => element.offsetParent !== null);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !closeDisabled) onClose();
+      if (event.key !== 'Tab') return;
+      const controls = focusable();
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    requestAnimationFrame(() => focusable()[0]?.focus());
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus();
+    };
   }, [onClose, closeDisabled]);
 
   return (
     <div className="modal-backdrop" onMouseDown={() => !closeDisabled && onClose()}>
       <div
+        ref={dialogRef}
         className={`modal${wide ? ' modal-wide' : ''}`}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="modal-head">
           {Icon ? <Icon /> : null}
-          <b>{title}</b>
+          <b id={titleId}>{title}</b>
           <button className="btn btn-ghost btn-icon" onClick={onClose} disabled={closeDisabled} aria-label="Close">
             <X />
           </button>

@@ -37,6 +37,14 @@ export function PanelHead({
   );
 }
 
+export function Toolbar({ children, label, className = '' }: { children: ReactNode; label: string; className?: string }) {
+  return (
+    <div className={`page-toolbar ${className}`.trim()} role="toolbar" aria-label={label}>
+      {children}
+    </div>
+  );
+}
+
 export function Empty({
   icon: Icon = Box,
   title,

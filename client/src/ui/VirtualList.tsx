@@ -15,6 +15,7 @@ export function VirtualList<T>({
   className = '',
   emptyState,
   resetKey,
+  fill = false,
 }: {
   items: T[];
   itemHeight: number;
@@ -24,11 +25,21 @@ export function VirtualList<T>({
   threshold?: number;
   className?: string;
   emptyState?: ReactNode;
+  /** Fill the parent workspace and measure the live viewport for virtualized rendering. */
+  fill?: boolean;
   /** Defaults to the items array. Supply a stable key when rows can expand in place. */
   resetKey?: unknown;
 }) {
   const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(height);
   const container = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!fill || !container.current) return;
+    const observer = new ResizeObserver(([entry]) => setViewportHeight(Math.max(itemHeight, entry.contentRect.height)));
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, [fill, itemHeight, items.length]);
 
   // A new list (a different type expanded, or a new search) starts from the top.
   useEffect(() => {
@@ -40,20 +51,20 @@ export function VirtualList<T>({
 
   if (items.length <= threshold) {
     return (
-      <div className={className} style={{ maxHeight: height, overflowY: 'auto' }}>
+      <div ref={container} className={className} style={fill ? { minHeight: 0, flex: 1, overflowY: 'auto' } : { maxHeight: height, overflowY: 'auto' }}>
         {items.map(renderItem)}
       </div>
     );
   }
 
   const start = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
-  const end = Math.min(items.length, start + Math.ceil(height / itemHeight) + overscan * 2);
+  const end = Math.min(items.length, start + Math.ceil(viewportHeight / itemHeight) + overscan * 2);
 
   return (
     <div
       ref={container}
       className={className}
-      style={{ height, overflowY: 'auto' }}
+      style={fill ? { minHeight: 0, flex: 1, overflowY: 'auto' } : { height, overflowY: 'auto' }}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
       <div style={{ height: items.length * itemHeight, position: 'relative' }}>

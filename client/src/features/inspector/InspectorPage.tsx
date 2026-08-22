@@ -94,7 +94,7 @@ export default function InspectorPage() {
   const editableCount = fields.filter((field) => field.updateable).length;
 
   return (
-    <Panel>
+    <Panel className="workspace-panel inspector-workspace">
       <PanelHead
         title="Record inspector"
         description="Retrieve, review, and update fields permitted by Salesforce field-level security."

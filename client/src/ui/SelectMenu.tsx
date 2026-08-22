@@ -75,6 +75,11 @@ export function SelectMenu({
       event.preventDefault();
       if (!open) show();
       else move(event.key === 'ArrowDown' ? 1 : -1);
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      if (!open) show();
+      const available = options.map((option, index) => ({ option, index })).filter(({ option }) => !option.disabled);
+      setActive(event.key === 'Home' ? (available[0]?.index ?? 0) : (available.at(-1)?.index ?? 0));
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       if (!open) show();

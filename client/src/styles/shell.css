@@ -140,6 +140,7 @@
 .sidebar-search input { min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font-size: var(--fs-xs); flex: 1; }
 .sidebar-search input:focus-visible { box-shadow: none; }
 .sidebar-search small { color: var(--text-faint); font-size: 9px; white-space: nowrap; }
+.sidebar-search kbd { display: grid; place-items: center; min-width: 20px; height: 20px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-faint); font-size: 10px; }
 .sidebar-search button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-sm); color: var(--text-faint); }
 .sidebar-search button:hover { background: var(--surface-hover); color: var(--text); }
 .sidebar-search button svg { width: 13px; height: 13px; }
@@ -152,7 +153,7 @@
   align-items: center;
   gap: 5px;
   width: 100%;
-  height: 27px;
+  height: 30px;
   padding: 0 6px 0 3px;
   border-radius: var(--r-sm);
   color: var(--text-faint);
@@ -211,8 +212,8 @@
 .nav-item:hover .nav-item-icon { color: var(--text); }
 .nav-item.is-active .nav-item-icon { color: var(--accent); }
 .nav-item-copy { display: grid; min-width: 0; flex: 1; line-height: 1.22; }
-.nav-item-copy b { overflow: hidden; font-size: var(--fs-xs); font-weight: var(--fw-semibold); text-overflow: ellipsis; white-space: nowrap; }
-.nav-item-copy small { overflow: hidden; margin-top: 2px; color: var(--text-faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.nav-item-copy b { overflow: hidden; font-size: var(--fs-sm); font-weight: var(--fw-semibold); text-overflow: ellipsis; white-space: nowrap; }
+.nav-item-copy small { overflow: hidden; margin-top: 2px; color: var(--text-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .nav-item .badge { height: 17px; min-width: 17px; padding: 0 4px; font-size: 9px; }
 
 .sidebar-nav-empty { display: grid; justify-items: center; gap: 4px; padding: 28px 12px; color: var(--text-faint); text-align: center; }
@@ -230,7 +231,7 @@
   font-size: var(--fs-xs);
   flex: 0 0 auto;
 }
-.sidebar-palette-command { display: flex; align-items: center; gap: 7px; width: 100%; height: 25px; padding: 0 6px; border-radius: var(--r-sm); color: var(--text-muted); text-align: left; }
+.sidebar-palette-command { display: flex; align-items: center; gap: 7px; width: 100%; height: 30px; padding: 0 7px; border-radius: var(--r-sm); color: var(--text-muted); text-align: left; }
 .sidebar-palette-command:hover { background: var(--surface-hover); color: var(--text); }
 .sidebar-palette-command svg { width: 13px; height: 13px; }
 .sidebar-palette-command span { flex: 1; }
@@ -292,7 +293,10 @@
 .statusbar-menu:focus-visible, .statusbar-action:focus-visible, .statusbar-command:focus-visible { box-shadow: inset var(--focus-ring); }
 .statusbar-menu { gap: 5px; padding: 0 7px; color: var(--accent) !important; font-weight: var(--fw-semibold); }
 .statusbar-menu svg, .statusbar-action svg, .statusbar-command svg { width: var(--icon-size); height: var(--icon-size); }
-.statusbar-page { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 0 7px; }
+.statusbar-page { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 0 8px; }
+.statusbar-page > svg { width: 14px; height: 14px; color: var(--accent); flex: 0 0 auto; }
+.statusbar-page .statusbar-chevron { width: 11px; height: 11px; color: var(--text-faint); }
+.statusbar-page .statusbar-group { color: var(--text-muted); font-size: var(--fs-xs); }
 .statusbar-page b { color: var(--text); font-size: var(--fs-xs); white-space: nowrap; }
 .statusbar-page small { overflow: hidden; max-width: 300px; color: var(--text-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .statusbar-divider { width: 1px; height: 14px; background: var(--border); }
@@ -300,7 +304,7 @@
 .statusbar-spacer { flex: 1; }
 .statusbar-command { gap: 6px; padding: 0 8px; border-left: 1px solid var(--border); }
 .statusbar-command kbd { padding: 1px 4px; border: 1px solid var(--border); border-radius: 3px; color: var(--text-faint); font-size: 9px; line-height: 14px; }
-.statusbar-action { width: 30px; }
+.statusbar-action { width: 34px; }
 .status-connected { display: flex; align-items: center; gap: 5px; height: 100%; padding: 0 7px; border-right: 1px solid var(--border); color: var(--success); white-space: nowrap; }
 
 /* Running job strip ---------------------------------------------------- */
@@ -366,4 +370,5 @@
   .statusbar-command span, .statusbar-command kbd { display: none; }
   .statusbar-page { max-width: 180px; }
   .statusbar-page b { overflow: hidden; text-overflow: ellipsis; }
+  .statusbar-group, .statusbar-chevron { display: none; }
 }

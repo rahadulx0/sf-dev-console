@@ -6,7 +6,7 @@ import { orgKey, useAppState } from '../../app/state';
 import { useDebounced } from '../../lib/hooks';
 import { fuzzySearch } from '../../lib/fuzzy';
 import { bytes, dateTime } from '../../lib/format';
-import { Badge, CodeBlock, Empty, Loading, Pagination, Panel, PanelHead, SearchInput, StaleBar } from '../../ui/primitives';
+import { Badge, CodeBlock, Empty, Loading, Pagination, Panel, PanelHead, SearchInput, StaleBar, Toolbar } from '../../ui/primitives';
 import { Modal } from '../../ui/Modal';
 import { useToast } from '../../ui/Toast';
 
@@ -50,7 +50,7 @@ export default function LogsPage() {
   }
 
   return (
-    <Panel>
+    <Panel className="workspace-panel">
       <PanelHead title="Debug logs" description="Inspect Apex execution logs without leaving the console.">
         <Badge>{items.length} logs</Badge>
         <StaleBar updatedAt={logs.updatedAt} refreshing={logs.loading} onRefresh={logs.refresh} />
@@ -60,10 +60,10 @@ export default function LogsPage() {
           <Loading label="Loading debug logs…" />
         ) : items.length ? (
           <>
-            <div className="filter-bar">
+            <Toolbar label="Filter debug logs" className="filter-bar">
               <SearchInput value={search} onChange={setSearch} placeholder="Filter by user, operation, or status…" />
-            </div>
-            <div className="table-wrap">
+            </Toolbar>
+            <div className="table-wrap workspace-data-region">
               <table className="data-table">
                 <thead>
                   <tr>

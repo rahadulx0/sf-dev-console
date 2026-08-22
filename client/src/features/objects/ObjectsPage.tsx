@@ -70,7 +70,7 @@ export default function ObjectsPage() {
 
   return (
     <div className="split split-objects">
-      <Panel>
+      <Panel className="object-catalog-panel">
         <PanelHead title="Salesforce objects" description="Standard and custom objects in this org.">
           <Badge>{names.length}</Badge>
           <StaleBar updatedAt={objects.updatedAt} refreshing={objects.loading} onRefresh={objects.refresh} />
@@ -84,10 +84,11 @@ export default function ObjectsPage() {
               items={shown}
               itemHeight={30}
               height={520}
+              fill
               className="object-list"
               emptyState={<Empty title="No matching objects" text="Try a shorter or different search." />}
               renderItem={(name) => (
-                <div className={`object-row${selectedObject === name ? ' is-active' : ''}`} key={name} style={{ height: 30 }}>
+                <div className={`object-row${selectedObject === name ? ' is-active' : ''}`} key={name}>
                   <input
                     type="checkbox"
                     checked={chosen.includes(name)}
@@ -109,7 +110,7 @@ export default function ObjectsPage() {
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className="object-detail-panel">
         {selectedObject ? (
           <>
             <PanelHead
@@ -132,7 +133,7 @@ export default function ObjectsPage() {
               ) : describe.error ? (
                 <Empty icon={Database} title="Could not describe object" text={describe.error.message} />
               ) : (
-                <div className="table-wrap" style={{ maxHeight: 560 }}>
+                <div className="table-wrap workspace-data-region">
                   <table className="data-table">
                     <thead>
                       <tr>

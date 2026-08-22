@@ -73,7 +73,7 @@ export function SelectMetadataStep({
         </Callout>
       ) : null}
       <div className="split split-metadata">
-      <Panel>
+      <Panel className="metadata-browser-panel">
         <PanelHead title="Metadata types" description={`Browsing ${sourceOrg}. Components load only when you open a type.`}>
           <Badge>{typeNames.length} types</Badge>
           <StaleBar updatedAt={types.updatedAt} refreshing={types.loading} onRefresh={types.refresh} />
@@ -158,7 +158,7 @@ export function SelectMetadataStep({
                             className="member-list"
                             emptyState={<Empty title="No components" text="This type has no components in the org." />}
                             renderItem={(member) => (
-                              <label className="member" key={member} style={{ height: 26 }}>
+                              <label className="member" key={member}>
                                 <input
                                   type="checkbox"
                                   checked={all || selected.includes(member)}

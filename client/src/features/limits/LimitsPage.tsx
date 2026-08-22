@@ -5,7 +5,7 @@ import { useResource } from '../../lib/resource';
 import { orgKey, useAppState } from '../../app/state';
 import { useDebounced } from '../../lib/hooks';
 import { fuzzySearch } from '../../lib/fuzzy';
-import { Badge, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar } from '../../ui/primitives';
+import { Badge, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar, Toolbar } from '../../ui/primitives';
 
 interface Limit {
   name: string;
@@ -37,7 +37,7 @@ export default function LimitsPage() {
   const shown = useMemo(() => fuzzySearch(rows, query, (row) => row.name), [rows, query]);
 
   return (
-    <Panel>
+    <Panel className="workspace-panel">
       <PanelHead title="Org consumption" description="Current limits and remaining capacity reported by Salesforce.">
         <Badge>{rows.length} limits</Badge>
         <StaleBar updatedAt={limits.updatedAt} refreshing={limits.loading} onRefresh={limits.refresh} />
@@ -47,10 +47,10 @@ export default function LimitsPage() {
           <Loading label="Loading API limits…" />
         ) : rows.length ? (
           <>
-            <div className="filter-bar">
+            <Toolbar label="Filter organization limits" className="filter-bar">
               <SearchInput value={search} onChange={setSearch} placeholder="Filter limits…" />
-            </div>
-            <div className="limit-grid">
+            </Toolbar>
+            <div className="limit-grid workspace-data-region">
               {shown.map((limit) => {
                 const used = Math.max(0, limit.max - limit.remaining);
                 const ratio = limit.max > 0 ? used / limit.max : 0;

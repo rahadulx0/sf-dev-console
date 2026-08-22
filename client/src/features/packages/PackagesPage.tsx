@@ -5,7 +5,7 @@ import { useResource } from '../../lib/resource';
 import { orgKey, useAppState } from '../../app/state';
 import { useDebounced } from '../../lib/hooks';
 import { fuzzySearch } from '../../lib/fuzzy';
-import { Badge, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar } from '../../ui/primitives';
+import { Badge, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar, Toolbar } from '../../ui/primitives';
 
 export default function PackagesPage() {
   const { orgId } = useAppState();
@@ -30,7 +30,7 @@ export default function PackagesPage() {
   );
 
   return (
-    <Panel>
+    <Panel className="workspace-panel">
       <PanelHead title="Installed packages" description="Managed and unlocked packages currently installed in this org.">
         <Badge>{items.length} packages</Badge>
         <StaleBar updatedAt={packages.updatedAt} refreshing={packages.loading} onRefresh={packages.refresh} />
@@ -40,25 +40,26 @@ export default function PackagesPage() {
           <Loading label="Loading packages…" />
         ) : items.length ? (
           <>
-            <div className="filter-bar">
+            <Toolbar label="Filter installed packages" className="filter-bar">
               <SearchInput value={search} onChange={setSearch} placeholder="Filter packages…" />
-            </div>
-            <div className="card-grid">
-              {shown.map((item, index) => (
-                <div className="card" key={item.SubscriberPackageId || index}>
-                  <span className="row-icon">
-                    <Package />
-                  </span>
-                  <div className="row-main">
-                    <b>{item.SubscriberPackageName || item.SubscriberPackageNamespace || 'Package'}</b>
-                    <small>
-                      {item.SubscriberPackageVersionName || item.SubscriberPackageVersionNumber || '—'} ·{' '}
-                      {item.SubscriberPackageNamespace || 'No namespace'}
-                    </small>
-                  </div>
-                </div>
-              ))}
-            </div>
+            </Toolbar>
+            {shown.length ? (
+              <div className="table-wrap workspace-table workspace-data-region">
+                <table className="data-table">
+                  <thead><tr><th>Package</th><th>Namespace</th><th>Version</th><th>Package ID</th></tr></thead>
+                  <tbody>
+                    {shown.map((item, index) => (
+                      <tr key={item.SubscriberPackageId || index}>
+                        <td><b>{item.SubscriberPackageName || item.SubscriberPackageNamespace || 'Package'}</b></td>
+                        <td className="cell-mono">{item.SubscriberPackageNamespace || '—'}</td>
+                        <td>{item.SubscriberPackageVersionName || item.SubscriberPackageVersionNumber || '—'}</td>
+                        <td className="cell-mono">{item.SubscriberPackageId || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <Empty icon={Package} title="No matching packages" text="Clear or change the current filter." />}
           </>
         ) : (
           <Empty icon={Package} title="No installed packages" text="This org did not return any package installations." />

@@ -26,9 +26,11 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const drawerClose = useRef<HTMLButtonElement>(null);
   const drawerPanel = useRef<HTMLElement>(null);
+  const navSearch = useRef<HTMLInputElement>(null);
 
   const page = isPageKey(route.page) ? route.page : 'overview';
   const definition = pageDef(page);
+  const DefinitionIcon = definition.icon;
   const Page = ROUTES[page];
   const activeGroupLabel = NAV_GROUPS.find((group) => group.pages.some((item) => item.key === page))?.label ?? '';
   const filteredGroups = useMemo(() => {
@@ -64,6 +66,21 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
         setDrawer(false);
         requestAnimationFrame(() => menuButton.current?.focus());
         return;
+      }
+      if (event.key === '/' && document.activeElement !== navSearch.current) {
+        event.preventDefault();
+        navSearch.current?.focus();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const destinations = Array.from(drawerPanel.current?.querySelectorAll<HTMLButtonElement>('.nav-item:not(:disabled)') ?? []);
+        const current = destinations.indexOf(document.activeElement as HTMLButtonElement);
+        if (current >= 0 && destinations.length) {
+          event.preventDefault();
+          const direction = event.key === 'ArrowDown' ? 1 : -1;
+          destinations[(current + direction + destinations.length) % destinations.length]?.focus();
+          return;
+        }
       }
       if (event.key !== 'Tab') return;
       const focusable = Array.from(
@@ -116,6 +133,9 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
             <span>Menu</span>
           </button>
           <span className="statusbar-page" title={definition.description}>
+            <DefinitionIcon />
+            <small className="statusbar-group">{activeGroupLabel}</small>
+            <ChevronRight className="statusbar-chevron" />
             <b>{definition.label}</b>
             <small>{definition.description}</small>
           </span>
@@ -168,9 +188,10 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
           <div className="sidebar-search">
             <Search />
             <input
+              ref={navSearch}
               value={navQuery}
               onChange={(event) => setNavQuery(event.target.value)}
-              placeholder="Filter navigation…"
+              placeholder="Find a workspace…"
               aria-label="Filter navigation destinations"
               autoComplete="off"
             />
@@ -178,7 +199,7 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
               <button type="button" onClick={() => setNavQuery('')} aria-label="Clear navigation filter">
                 <X />
               </button>
-            ) : <small>{visibleDestinationCount} tools</small>}
+            ) : <kbd>/</kbd>}
           </div>
         </div>
 

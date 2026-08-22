@@ -43,17 +43,20 @@
   --r-xl: 8px;
   --r-full: 999px;
 
-  --control-h: 32px;
-  --control-h-sm: 26px;
-  --row-h: 36px;
-  --tab-h: 32px;
-  --icon-size: 15px;
-  --icon-size-sm: 13px;
-  --statusbar-h: 28px;
-  --nav-row-h: 30px;
-  --nav-tile: 26px;
-  --nav-icon: 16px;
-  --drawer-w: 360px;
+  --control-h: 35px;
+  --control-h-sm: 30px;
+  --row-h: 38px;
+  --tab-h: 36px;
+  --toolbar-h: 43px;
+  --table-head-h: 31px;
+  --table-row-h: 34px;
+  --icon-size: 16px;
+  --icon-size-sm: 14px;
+  --statusbar-h: 31px;
+  --nav-row-h: 38px;
+  --nav-tile: 30px;
+  --nav-icon: 17px;
+  --drawer-w: 420px;
 
   --z-drawer-scrim: 80;
   --z-drawer: 90;
