@@ -4,7 +4,7 @@ import { api } from '../../lib/api';
 import { dateTime } from '../../lib/format';
 import { Badge, CodeBlock, Panel, PanelHead } from '../../ui/primitives';
 import { useToast } from '../../ui/Toast';
-import type { OrgDeployRecord } from '../../types';
+import type { FileTransferResult, OrgDeployRecord } from '../../types';
 
 const POLL_MS = 4000;
 const PENDING_STATUSES = new Set(['Pending', 'InProgress', 'Queued', 'Canceling']);
@@ -30,7 +30,7 @@ export function ExecuteResultStep({
 }) {
   const toast = useToast();
   const [report, setReport] = useState<any>(submitResponse);
-  const [status, setStatus] = useState<'running' | 'succeeded' | 'failed'>('running');
+  const [status, setStatus] = useState<'running' | 'succeeded' | 'failed'>(record.status === 'succeeded' ? 'succeeded' : 'running');
   const [log, setLog] = useState<LogEntry[]>([{ at: Date.now(), text: `Submitted ${record.mode} job${record.jobId ? ` ${record.jobId}` : ''}` }]);
   const [busy, setBusy] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
@@ -116,6 +116,7 @@ export function ExecuteResultStep({
   const componentFailures = normalizeList(report?.details?.componentFailures);
   const testFailures = normalizeList(report?.details?.runTestResult?.failures);
   const coverageWarnings = normalizeList(report?.details?.runTestResult?.codeCoverageWarnings);
+  const fileTransfer = normalizeList(submitResponse?.fileTransfer) as FileTransferResult[];
 
   return (
     <div className="page-stack">
@@ -213,6 +214,21 @@ export function ExecuteResultStep({
               </table>
             </div>
           </div>
+        </Panel>
+      ) : null}
+
+      {fileTransfer.length ? (
+        <Panel>
+          <PanelHead title="File transfer" description={`${fileTransfer.filter((file) => file.status === 'succeeded').length} of ${fileTransfer.length} files copied and linked.`} />
+          <div className="panel-body panel-body-flush"><div className="table-wrap"><table className="data-table">
+            <thead><tr><th>Status</th><th>File</th><th>Related record</th><th>Target IDs / error</th></tr></thead>
+            <tbody>{fileTransfer.map((file) => <tr key={`${file.contentDocumentId}:${file.parentId}`}>
+              <td><Badge tone={file.status === 'succeeded' ? 'success' : 'danger'}>{file.status}</Badge></td>
+              <td>{file.title}</td>
+              <td>{file.parentType} · {file.parentName}<small className="block">{file.parentAction ? `Target record ${file.parentAction}` : ''}</small></td>
+              <td className="cell-mono">{file.status === 'succeeded' ? `${file.targetParentId || '—'} · ${file.targetContentDocumentId || 'created'}` : file.error}</td>
+            </tr>)}</tbody>
+          </table></div></div>
         </Panel>
       ) : null}
 

@@ -8,6 +8,7 @@ import { useResource } from '../../lib/resource';
 import { Badge, Callout, Empty, Loading, Panel, PanelHead, SearchInput, StaleBar } from '../../ui/primitives';
 import { VirtualList } from '../../ui/VirtualList';
 import type { Selection } from '../../types';
+import { FileSelectionPanel } from './FileSelectionPanel';
 
 export function SelectMetadataStep({
   sourceOrg,
@@ -16,6 +17,8 @@ export function SelectMetadataStep({
   comparing,
   onBack,
   onCompare,
+  fileKeys,
+  setFileKeys,
 }: {
   sourceOrg: string;
   selections: Selection[];
@@ -23,6 +26,8 @@ export function SelectMetadataStep({
   comparing: boolean;
   onBack: () => void;
   onCompare: () => void;
+  fileKeys: Set<string>;
+  setFileKeys: (value: Set<string>) => void;
 }) {
   const [expanded, setExpanded] = useState('');
   const [search, setSearch] = useState('');
@@ -67,6 +72,7 @@ export function SelectMetadataStep({
 
   return (
     <div className="page-stack">
+      <FileSelectionPanel sourceOrg={sourceOrg} selected={fileKeys} setSelected={setFileKeys} />
       {includesCustomFields ? (
         <Callout icon={ShieldCheck} tone="accent" title="Field-level security will be included">
           Source Profiles and Permission Sets will be retrieved with the selected fields and included in comparison and deployment review.
@@ -211,7 +217,7 @@ export function SelectMetadataStep({
               <button className="btn" onClick={onBack}>
                 <ArrowLeft /> Back to orgs
               </button>
-              <button className="btn btn-primary" disabled={!selections.length || comparing} onClick={onCompare}>
+              <button className="btn btn-primary" disabled={(!selections.length && !fileKeys.size) || comparing} onClick={onCompare}>
                 {comparing ? <LoaderCircle className="spin" /> : <GitCompare />} Compare with target <ArrowRight />
               </button>
             </div>

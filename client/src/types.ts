@@ -124,3 +124,23 @@ export interface OrgDeployRecord {
   completedAt?: string;
   error?: string;
 }
+
+export interface SourceFileRow {
+  contentDocumentId: string;
+  contentVersionId: string;
+  title: string;
+  pathOnClient: string;
+  fileExtension?: string;
+  contentSize: number;
+  parentId: string;
+  parentType: string;
+  parentName: string;
+}
+
+export interface FileTransferResult extends SourceFileRow {
+  status: 'succeeded' | 'failed';
+  targetParentId?: string;
+  targetContentDocumentId?: string;
+  parentAction?: 'matched' | 'created';
+  error?: string;
+}

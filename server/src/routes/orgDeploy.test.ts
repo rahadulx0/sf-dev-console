@@ -33,14 +33,17 @@ test('compare rejects identical source and target orgs without calling the CLI',
   assert.equal(calls, 0);
 });
 
-test('compare rejects an empty selection', async () => {
-  const app = await buildApp({ execute: async () => ({}) });
+test('compare prepares a files-only transfer without calling metadata retrieval', async () => {
+  let calls = 0;
+  const app = await buildApp({ execute: async () => { calls++; return {}; } });
   const response = await app.inject({
     method: 'POST',
     url: '/api/org-deploy/compare',
     payload: { sourceOrg: 'source', targetOrg: 'target', selections: [] },
   });
-  assert.equal(response.statusCode, 400);
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.payload).rows, []);
+  assert.equal(calls, 0);
 });
 
 test('compare surfaces a source retrieval failure instead of a raw crash', async () => {

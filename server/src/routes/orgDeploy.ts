@@ -26,6 +26,7 @@ import {
 import { getState, updateState, workspace } from '../state/store.js';
 import type { CliRunner } from '../cli/CliRunner.js';
 import type { OrgDeployRecord } from '../types.js';
+import { listSourceFiles, transferFiles } from '../fileTransfer.js';
 import { cli as sharedCli, safeOrg, safeType, safeUuid, ttl } from './shared.js';
 
 interface StoredComparison {
@@ -129,13 +130,20 @@ async function readTextForDiff(filePath: string): Promise<string | null | undefi
 export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?: Pick<CliRunner, 'execute'> } = {}) {
   const cli = opts.cliOverride ?? sharedCli;
 
+  app.get<{ Querystring: { sourceOrg: string } }>('/api/org-deploy/files', async (req) => {
+    const sourceOrg = safeOrg(req.query.sourceOrg);
+    const files = await listSourceFiles(cli, sourceOrg);
+    return { files };
+  });
+
   app.post<{ Body: { sourceOrg: string; targetOrg: string; selections: unknown; apiVersion?: string } }>(
     '/api/org-deploy/compare',
     async (req) => {
       const sourceOrg = safeOrg(req.body.sourceOrg);
       const targetOrg = safeOrg(req.body.targetOrg);
       if (sourceOrg === targetOrg) throw new Error('Source and target orgs must be different');
-      const requestedSelections = safeSelections(req.body.selections, safeType);
+      const hasSelections = Array.isArray(req.body.selections) && req.body.selections.length > 0;
+      const requestedSelections = hasSelections ? safeSelections(req.body.selections, safeType) : [];
       const { selections, included: includedFieldLevelSecurity } = includeFieldLevelSecurity(requestedSelections);
 
       const id = randomUUID();
@@ -146,6 +154,11 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       await mkdir(targetDir, { recursive: true });
       const manifestPath = path.join(baseDir, 'package.xml');
       await writeFile(manifestPath, buildManifest(selections, req.body.apiVersion));
+
+      if (!selections.length) {
+        storeComparison({ id, sourceOrg, targetOrg, targetAvailable: true, baseDir, sourceDir, targetDir, rows: [] });
+        return { id, sourceOrg, targetOrg, targetAvailable: true, rows: [], dependencies: [], includedFieldLevelSecurity };
+      }
 
       await cli.execute(buildRetrieveArgs(manifestPath, sourceOrg, sourceDir), { cwd: workspace, timeoutMs: 10 * 60_000 });
 
@@ -250,6 +263,7 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       testLevel?: string;
       tests?: string[];
       confirmation: string;
+      fileKeys?: string[];
     };
   }>('/api/org-deploy/deploy', async (req) => {
     const comparison = comparisons.get(safeUuid(req.body.id));
@@ -269,7 +283,8 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       requestedDestructive.filter((key) => comparison.rows.some((row) => row.key === key && row.status === 'missing-source')),
     );
     for (const key of destructiveKeys) selectedKeys.add(key);
-    if (!selectedKeys.size) throw new Error('Select at least one reviewed component or explicit deletion');
+    const hasRequestedFiles = mode === 'deploy' && Array.isArray(req.body.fileKeys) && req.body.fileKeys.length > 0;
+    if (!selectedKeys.size && !hasRequestedFiles) throw new Error('Select metadata components or Salesforce Files to transfer');
     selectedKeys = includeRequiredFieldSecurityKeys(comparison.rows, selectedKeys);
 
     const testLevel = safeTestLevel(req.body.testLevel);
@@ -278,21 +293,36 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       throw new Error('Select at least one Apex test class for RunSpecifiedTests');
     }
 
+    let selectedFiles: Awaited<ReturnType<typeof listSourceFiles>> = [];
+    if (mode === 'deploy' && Array.isArray(req.body.fileKeys) && req.body.fileKeys.length) {
+      if (req.body.fileKeys.length > 10_000 || req.body.fileKeys.some((key) => typeof key !== 'string' || !/^069[\w]{12,15}:[\w]{15,18}$/.test(key))) {
+        throw new Error('Invalid file selection (maximum 10,000 file links per transfer)');
+      }
+      const allowedKeys = new Set(req.body.fileKeys);
+      const available = await listSourceFiles(cli, comparison.sourceOrg);
+      selectedFiles = available.filter((file) => allowedKeys.has(`${file.contentDocumentId}:${file.parentId}`));
+      if (selectedFiles.length !== allowedKeys.size) throw new Error('One or more selected files are no longer available in the source org');
+    }
+
     const selectedRows = comparison.rows.filter((row) => selectedKeys.has(row.key));
     const opId = randomUUID();
     const scopeDir = path.join(comparison.baseDir, `deploy-${opId}`);
     await mkdir(scopeDir, { recursive: true });
-    await buildDeployScope(comparison.sourceDir, selectedRows, selectedKeys, scopeDir, destructiveKeys);
+    if (selectedKeys.size) await buildDeployScope(comparison.sourceDir, selectedRows, selectedKeys, scopeDir, destructiveKeys);
 
     let targetIsSandbox = false;
     if (mode === 'validate') {
       const orgInfo = await cli.execute(['org', 'display', '--target-org', targetOrg], { timeoutMs: 120_000 });
       targetIsSandbox = !!orgInfo?.isSandbox;
     }
-    const response = await cli.execute(buildDeployArgs(mode, scopeDir, targetOrg, testLevel, tests, targetIsSandbox), {
-      cwd: workspace,
-      timeoutMs: 120_000,
-    });
+    const response = selectedKeys.size
+      ? await cli.execute(buildDeployArgs(mode, scopeDir, targetOrg, testLevel, tests, targetIsSandbox), { cwd: workspace, timeoutMs: 120_000 })
+      : { success: true, done: true, status: 'Succeeded', filesOnly: true };
+
+    let fileTransfer: Awaited<ReturnType<typeof transferFiles>> = [];
+    if (selectedFiles.length) {
+      fileTransfer = await transferFiles(cli, comparison.sourceOrg, targetOrg, selectedFiles, path.join(scopeDir, 'file-transfer'));
+    }
 
     const record: OrgDeployRecord = {
       id: randomUUID(),
@@ -300,7 +330,7 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       targetOrg,
       targetIsSandbox,
       mode,
-      status: 'running',
+      status: selectedKeys.size ? 'running' : 'succeeded',
       jobId: response?.id || response?.jobId,
       componentCount: selectedRows.length,
       types: [...new Set(selectedRows.map((row) => row.type))],
@@ -310,7 +340,7 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       draft.orgDeploys = [record, ...draft.orgDeploys].slice(0, 50);
     });
 
-    return { record, response };
+    return { record, response, fileTransfer };
   });
 
   app.get('/api/org-deploy/history', async () => ({ orgDeploys: getState().orgDeploys }));

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ArrowLeft, LoaderCircle, Rocket, Search, ShieldCheck } from 'lucide-react';
 import { Badge, Callout, CodeBlock, Field } from '../../ui/primitives';
 import type { CompareResult, TestLevel } from '../../types';
@@ -29,6 +30,7 @@ export function DeploySettingsStep({
   onPreview,
   onBack,
   onExecute,
+  children,
 }: {
   compare: CompareResult;
   selectedCount: number;
@@ -48,11 +50,12 @@ export function DeploySettingsStep({
   onPreview: () => void;
   onBack: () => void;
   onExecute: () => void;
+  children?: ReactNode;
 }) {
   const phrase = `${mode === 'deploy' ? 'DEPLOY' : 'VALIDATE'} ${compare.targetOrg}`;
 
   return (
-    <div className="page-stack">
+    <div className="page-stack deploy-settings-page">
       <section className="panel">
         <div className="panel-head">
           <div>
@@ -91,7 +94,9 @@ export function DeploySettingsStep({
         </div>
       </section>
 
-      <section className="panel">
+      {children}
+
+      {selectedCount ? <section className="panel">
         <div className="panel-head">
           <div><h3>Prepared package preview</h3><p>Inspect the exact regular and destructive manifests that will be submitted to Salesforce.</p></div>
           <button className="btn" onClick={onPreview} disabled={busy || previewBusy}>
@@ -99,7 +104,7 @@ export function DeploySettingsStep({
           </button>
         </div>
         {preview ? <div className="panel-body"><CodeBlock>{JSON.stringify(preview, null, 2)}</CodeBlock></div> : null}
-      </section>
+      </section> : null}
 
       <section className="panel">
         <div className="panel-head">

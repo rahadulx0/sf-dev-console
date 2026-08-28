@@ -2298,3 +2298,56 @@ button.result-note {
 .org-deploy-workspace > .page-stack > .action-row:last-child { margin-top: auto; padding: 4px; border-top: 1px solid var(--border); background: var(--surface-2); }
 .org-deploy-workspace .comparison-workspace { height: 100%; min-height: 0; }
 .org-deploy-workspace .comparison-layout { height: calc(100% - var(--toolbar-h) - var(--control-h-sm) - 12px); min-height: 0; }
+.file-transfer-list { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; }
+.file-transfer-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); align-items: center; }
+.file-transfer-row:last-child { border-bottom: 0; }
+.file-transfer-row > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
+.file-transfer-row b, .file-transfer-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-transfer-toolbar { gap: 12px; flex-wrap: wrap; }
+.file-transfer-toolbar .action-row { flex-wrap: wrap; }
+
+/* Settings contains several independently-sized sections; none should be
+   compressed to fit the viewport. The page itself owns vertical scrolling. */
+.org-deploy-workspace > .deploy-settings-page {
+  display: flex;
+  gap: 12px;
+  padding: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-block: 8px;
+}
+.deploy-settings-page > .panel,
+.deploy-settings-page > .action-row {
+  flex: 0 0 auto;
+}
+.deploy-settings-page > .panel { overflow: hidden; }
+.deploy-settings-page .panel-head { padding: 10px 12px; gap: 8px 12px; }
+.deploy-settings-page .panel-body { padding: 12px; }
+.deploy-settings-page .callout + .search-input,
+.deploy-settings-page .callout + .callout,
+.deploy-settings-page .search-input + .file-transfer-toolbar { margin-top: 12px; }
+.deploy-settings-page .file-transfer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+}
+.deploy-settings-page .file-transfer-toolbar .action-row { margin: 0; }
+.deploy-settings-page .danger-zone { grid-template-columns: minmax(0, 1fr) minmax(240px, 360px) auto; }
+
+@media (max-width: 900px) {
+  .deploy-settings-page .danger-zone { grid-template-columns: 1fr; align-items: stretch; }
+  .deploy-settings-page .danger-zone .btn { width: 100%; }
+}
+
+@media (max-width: 640px) {
+  .org-deploy-workspace > .deploy-settings-page { gap: 8px; padding: 6px; }
+  .deploy-settings-page .panel-head,
+  .deploy-settings-page .panel-body { padding: 9px; }
+  .deploy-settings-page .panel-head > .btn { width: 100%; }
+  .deploy-settings-page .file-transfer-toolbar { align-items: stretch; flex-direction: column; }
+  .deploy-settings-page .file-transfer-toolbar .action-row { display: grid; grid-template-columns: 1fr; }
+  .deploy-settings-page .file-transfer-toolbar .btn { width: 100%; min-height: var(--control-h-sm); }
+  .file-transfer-row { grid-template-columns: auto minmax(0, 1fr); }
+  .file-transfer-row > .badge { grid-column: 2; justify-self: start; }
+}

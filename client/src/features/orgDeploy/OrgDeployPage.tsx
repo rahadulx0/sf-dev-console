@@ -4,13 +4,14 @@ import { invalidate } from '../../lib/resource';
 import { useAppState } from '../../app/state';
 import { useLocalStorage } from '../../lib/hooks';
 import { useToast } from '../../ui/Toast';
-import { orgIdOf, type CompareResult, type OrgDeployRecord, type Selection, type TestLevel } from '../../types';
+import { orgIdOf, type CompareResult, type FileTransferResult, type OrgDeployRecord, type Selection, type TestLevel } from '../../types';
 import { SelectOrgsStep } from './SelectOrgsStep';
 import { SelectMetadataStep } from './SelectMetadataStep';
 import { CompareReviewStep } from './CompareReviewStep';
 import { DeploySettingsStep } from './DeploySettingsStep';
 import { ExecuteResultStep } from './ExecuteResultStep';
 import { HistoryPanel } from './HistoryPanel';
+import { FileSelectionPanel } from './FileSelectionPanel';
 
 type StepKey = 'orgs' | 'metadata' | 'review' | 'settings' | 'result';
 
@@ -34,6 +35,7 @@ export default function OrgDeployPage() {
   const [compare, setCompare] = useState<CompareResult | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [destructiveKeys, setDestructiveKeys] = useState<Set<string>>(new Set());
+  const [fileKeys, setFileKeys] = useState<Set<string>>(new Set());
 
   const [mode, setMode] = useState<'validate' | 'deploy'>('validate');
   const [testLevel, setTestLevel] = useState<TestLevel>('RunLocalTests');
@@ -42,7 +44,7 @@ export default function OrgDeployPage() {
   const [executing, setExecuting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [deployPreview, setDeployPreview] = useState<any>(null);
-  const [deployResult, setDeployResult] = useState<{ record: OrgDeployRecord; response: any } | null>(null);
+  const [deployResult, setDeployResult] = useState<{ record: OrgDeployRecord; response: any; fileTransfer?: FileTransferResult[] } | null>(null);
 
   const unlocked = useMemo(() => {
     const set = new Set<StepKey>(['orgs']);
@@ -69,7 +71,7 @@ export default function OrgDeployPage() {
       setCompare(result);
       setSelectedKeys(new Set(result.rows.filter((row) => row.sourceExists).map((row) => row.key)));
       setDestructiveKeys(new Set());
-      setStep('review');
+      setStep(result.rows.length ? 'review' : 'settings');
       if (!result.targetAvailable) {
         toast.info('Comparison completed with warnings', 'The target org could not be read — see the review step.');
       } else {
@@ -91,7 +93,7 @@ export default function OrgDeployPage() {
     const phrase = `${mode === 'deploy' ? 'DEPLOY' : 'VALIDATE'} ${targetOrg}`;
     setExecuting(true);
     try {
-      const result = await api<{ record: OrgDeployRecord; response: any }>('/org-deploy/deploy', {
+      const result = await api<{ record: OrgDeployRecord; response: any; fileTransfer?: FileTransferResult[] }>('/org-deploy/deploy', {
         method: 'POST',
         body: JSON.stringify({
           id: compare.id,
@@ -102,12 +104,16 @@ export default function OrgDeployPage() {
           testLevel,
           tests,
           confirmation: mode === 'deploy' ? confirmation : phrase,
+          fileKeys: mode === 'deploy' ? [...fileKeys] : [],
         }),
       });
       invalidate('org-deploy:history');
       setDeployResult(result);
       setStep('result');
-      toast.success(mode === 'deploy' ? 'Deployment started' : 'Validation submitted', result.record.jobId ? `Job ${result.record.jobId}` : undefined);
+      toast.success(
+        mode === 'deploy' ? (result.record.jobId ? 'Deployment started' : 'File transfer complete') : 'Validation submitted',
+        result.record.jobId ? `Job ${result.record.jobId}` : result.fileTransfer ? `${result.fileTransfer.filter((file) => file.status === 'succeeded').length} files transferred` : undefined,
+      );
     } catch (error) {
       toast.error(error);
     } finally {
@@ -180,6 +186,8 @@ export default function OrgDeployPage() {
           comparing={comparing}
           onBack={() => setStep('orgs')}
           onCompare={runCompare}
+          fileKeys={fileKeys}
+          setFileKeys={setFileKeys}
         />
       ) : null}
 
@@ -219,7 +227,7 @@ export default function OrgDeployPage() {
       ) : null}
 
       {step === 'result' && deployResult ? (
-        <ExecuteResultStep record={deployResult.record} submitResponse={deployResult.response} onRestart={restart} />
+        <ExecuteResultStep record={deployResult.record} submitResponse={{ ...deployResult.response, fileTransfer: deployResult.fileTransfer }} onRestart={restart} />
       ) : null}
 
       <HistoryPanel />
