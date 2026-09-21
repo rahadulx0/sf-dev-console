@@ -37,6 +37,10 @@ export async function initStorage() {
   await mkdir(path.join(workspace, 'manifest'), { recursive: true });
   await mkdir(path.join(workspace, 'retrieve'), { recursive: true });
   await mkdir(path.join(workspace, 'org-deploy'), { recursive: true });
+  // The CLI validates that every packageDirectories entry in sfdx-project.json exists on disk
+  // before running any project-scoped command here (report, quick, cancel), even ones that
+  // never touch source files, so the directory this project.json declares must actually exist.
+  await mkdir(path.join(workspace, 'force-app'), { recursive: true });
   try {
     await readFile(path.join(workspace, 'sfdx-project.json'));
   } catch {

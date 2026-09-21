@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Cloud, Menu, Moon, RefreshCw, Search, Sun, X } from 'lucide-react';
 import { NAV_GROUPS, isPageKey, pageDef } from './pages';
-import { ROUTES } from './routes';
+import { ROUTES, prefetchAllRoutes, prefetchRoute } from './routes';
 import { CommandPalette } from './CommandPalette';
 import { ErrorBoundary, clearReloadGuard } from './ErrorBoundary';
 import { JobStrip } from './JobStrip';
@@ -54,6 +54,9 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
     if (!drawer) setNavQuery('');
   }, [drawer]);
   useEffect(clearReloadGuard, []);
+  // Once the current page has painted, pull the other page chunks down while the app is idle,
+  // so the first visit to each is a render rather than a download.
+  useEffect(prefetchAllRoutes, []);
   useEffect(() => {
     document.title = `${definition.label} · SF Dev Console`;
   }, [definition.label]);
@@ -228,6 +231,10 @@ export function Shell({ status: _status }: { status: SystemStatus }) {
                       key={key}
                       className={`nav-item${page === key ? ' is-active' : ''}`}
                       onClick={() => navigate(key)}
+                      // Pointing at a destination is a strong enough signal to start its
+                      // chunk; by the time the click lands it is usually already there.
+                      onPointerEnter={() => prefetchRoute(key)}
+                      onFocus={() => prefetchRoute(key)}
                       aria-current={page === key ? 'page' : undefined}
                       title={description}
                     >

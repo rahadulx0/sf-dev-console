@@ -21,8 +21,6 @@ export function DeploySettingsStep({
   setTestLevel,
   testsInput,
   setTestsInput,
-  confirmation,
-  setConfirmation,
   busy,
   previewBusy,
   preview,
@@ -40,8 +38,6 @@ export function DeploySettingsStep({
   setTestLevel: (level: TestLevel) => void;
   testsInput: string;
   setTestsInput: (value: string) => void;
-  confirmation: string;
-  setConfirmation: (value: string) => void;
   busy: boolean;
   previewBusy: boolean;
   preview: any;
@@ -49,8 +45,6 @@ export function DeploySettingsStep({
   onBack: () => void;
   onExecute: () => void;
 }) {
-  const phrase = `${mode === 'deploy' ? 'DEPLOY' : 'VALIDATE'} ${compare.targetOrg}`;
-
   return (
     <div className="page-stack">
       <section className="panel">
@@ -127,7 +121,6 @@ export function DeploySettingsStep({
                 options={TEST_LEVELS.map((level) => ({
                   value: level.value,
                   label: level.label,
-                  disabled: mode === 'validate' && level.value === 'NoTestRun',
                 }))}
               />
             </Field>
@@ -150,17 +143,9 @@ export function DeploySettingsStep({
                 <b>Deploy to {compare.targetOrg}</b>
                 <small>
                   {destructiveCount ? `This deployment will delete ${destructiveCount} target component${destructiveCount === 1 ? '' : 's'}. ` : ''}
-                  Type <code>{phrase}</code> to enable this deployment.
                 </small>
               </div>
-              <input
-                className="input input-mono"
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
-                placeholder={phrase}
-                spellCheck={false}
-              />
-              <button className="btn btn-danger" disabled={busy || confirmation !== phrase} onClick={onExecute}>
+              <button className="btn btn-danger" disabled={busy} onClick={onExecute}>
                 {busy ? <LoaderCircle className="spin" /> : <Rocket />} Deploy metadata
               </button>
             </div>

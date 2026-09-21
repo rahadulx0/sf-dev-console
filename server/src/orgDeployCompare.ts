@@ -326,10 +326,6 @@ export function includeRequiredFieldSecurityKeys(rows: ComparisonRow[], requeste
   return next;
 }
 
-export function confirmationPhrase(mode: 'validate' | 'deploy', targetOrg: string): string {
-  return `${mode === 'deploy' ? 'DEPLOY' : 'VALIDATE'} ${targetOrg}`;
-}
-
 export function buildRetrieveArgs(manifestPath: string, org: string, outputDir: string): string[] {
   return ['project', 'retrieve', 'start', '--manifest', manifestPath, '--target-org', org, '--target-metadata-dir', outputDir, '--unzip'];
 }

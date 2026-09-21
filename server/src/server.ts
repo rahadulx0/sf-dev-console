@@ -5,8 +5,10 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { CliError } from './cli/CliRunner.js';
-import { appHome, flushNow, initStorage, updateState } from './state/store.js';
-import { cli } from './routes/shared.js';
+import { appHome, flushNow, getState, initStorage, updateState } from './state/store.js';
+import { authProvider, cli } from './routes/shared.js';
+import { fastPathStats } from './sf/runtime.js';
+import { pruneDiskCache } from './sf/cache.js';
 import { orgRoutes } from './routes/orgs.js';
 import { metadataRoutes } from './routes/metadata.js';
 import { retrievalRoutes } from './routes/retrievals.js';
@@ -16,7 +18,12 @@ import { deployRoutes } from './routes/deploy.js';
 import { orgDeployRoutes } from './routes/orgDeploy.js';
 import { editorRoutes } from './routes/editor.js';
 
-const app = Fastify({ logger: true, bodyLimit: 2_000_000 });
+/*
+ * Per-request logging writes a line for every call including the activity poll. It stays on by
+ * default for development and can be turned down for a packaged build, where nothing reads it.
+ */
+const logger = process.env.SF_CONSOLE_LOG === 'off' ? false : true;
+const app = Fastify({ logger, bodyLimit: 2_000_000 });
 await app.register(cors, { origin: ['http://127.0.0.1:5173', 'http://localhost:5173'] });
 await initStorage();
 
@@ -48,10 +55,15 @@ app.get('/api/system/status', async () => {
     if (!cachedVersion || cachedVersion.expiresAt < Date.now()) {
       cachedVersion = { value: await cli.version(), expiresAt: Date.now() + 300_000 };
     }
-    return { cli: { installed: true, version: cachedVersion.value }, node: process.version, storage: appHome };
+    return { cli: { installed: true, version: cachedVersion.value }, node: process.version, storage: appHome, fastPath: fastPathStats() };
   } catch (e) {
     cachedVersion = undefined;
-    return { cli: { installed: false, error: e instanceof Error ? e.message : String(e) }, node: process.version, storage: appHome };
+    return {
+      cli: { installed: false, error: e instanceof Error ? e.message : String(e) },
+      node: process.version,
+      storage: appHome,
+      fastPath: fastPathStats(),
+    };
   }
 });
 
@@ -80,3 +92,25 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 const port = Number(process.env.PORT || 4173);
 await app.listen({ host: '127.0.0.1', port });
+
+/*
+ * Warm-up.
+ *
+ * The first direct-API call for an org has to obtain a token, which costs one `sf org display`
+ * — the only CLI boot the fast path ever pays. Doing it here, while the user is still looking
+ * at the window opening, means their first real action finds the token already waiting instead
+ * of stalling for several seconds.
+ *
+ * All of it is best-effort and unawaited: a machine with no CLI, no orgs, or no network starts
+ * exactly as it did before.
+ */
+void (async () => {
+  void pruneDiskCache();
+  const org = getState().selectedOrg;
+  if (!org) return;
+  try {
+    await authProvider.auth(org);
+  } catch {
+    // No token simply means the first read falls back to the CLI, as it always could.
+  }
+})();

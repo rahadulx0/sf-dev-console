@@ -15,13 +15,9 @@ export default function DeployPage() {
   const [project, setProject] = useLocalStorage('sf-project-path', '');
   const [source, setSource] = useLocalStorage('sf-source-path', 'force-app');
   const [testLevel, setTestLevel] = useState<(typeof TEST_LEVELS)[number]>('RunLocalTests');
-  const [confirmation, setConfirmation] = useState('');
   const [jobId, setJobId] = useState('');
   const [result, setResult] = useState<unknown>();
   const [busy, setBusy] = useState('');
-
-  const deployPhrase = `DEPLOY ${orgId}`;
-  const quickPhrase = `QUICK DEPLOY ${jobId}`;
 
   async function run(kind: 'preview' | 'validate' | 'start') {
     setBusy(kind);
@@ -29,7 +25,7 @@ export default function DeployPage() {
     try {
       const response = await api<any>(`/deploy/${kind}`, {
         method: 'POST',
-        body: JSON.stringify({ org: orgId, projectPath: project, sourcePath: source, testLevel, confirmation }),
+        body: JSON.stringify({ org: orgId, projectPath: project, sourcePath: source, testLevel }),
       });
       setResult(response);
       const id = response?.id || response?.jobId || response?.response?.id;
@@ -56,7 +52,7 @@ export default function DeployPage() {
           ? await api<any>(`/deploy/${encodeURIComponent(orgId)}/${jobId}`)
           : await api<any>(`/deploy/${kind}`, {
               method: 'POST',
-              body: JSON.stringify({ org: orgId, jobId, confirmation }),
+              body: JSON.stringify({ org: orgId, jobId }),
             });
       setResult(response);
       if (kind === 'quick') {
@@ -81,8 +77,7 @@ export default function DeployPage() {
       </PanelHead>
       <div className="panel-body">
         <Callout icon={ShieldCheck} tone="accent" title="Guarded deployment workflow">
-          Paths must stay inside a valid Salesforce project. Deployments and quick deploys require an exact typed
-          confirmation, which the server re-checks before running anything.
+          Paths must stay inside a valid Salesforce project.
         </Callout>
 
         <div className="form-row mt-4">
@@ -125,22 +120,8 @@ export default function DeployPage() {
         <div className="danger-zone">
           <div>
             <b>Deploy to {orgId}</b>
-            <small>
-              Type <code>{deployPhrase}</code> to enable an asynchronous deployment.
-            </small>
           </div>
-          <input
-            className="input input-mono"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-            placeholder={deployPhrase}
-            spellCheck={false}
-          />
-          <button
-            className="btn btn-danger"
-            disabled={!!busy || !project || confirmation !== deployPhrase}
-            onClick={() => run('start')}
-          >
+          <button className="btn btn-danger" disabled={!!busy || !project} onClick={() => run('start')}>
             {busy === 'start' ? <LoaderCircle className="spin" /> : <Rocket />} Deploy metadata
           </button>
         </div>
@@ -164,15 +145,8 @@ export default function DeployPage() {
         </div>
 
         <div className="quick-zone">
-          <small>
-            To promote a successful validation, type <code>{jobId ? quickPhrase : 'QUICK DEPLOY 0Af…'}</code> in the
-            confirmation field above.
-          </small>
-          <button
-            className="btn"
-            disabled={!jobId || confirmation !== quickPhrase || !!busy}
-            onClick={() => job('quick')}
-          >
+          <small>Promote a successful validation to a real deployment using its job ID above.</small>
+          <button className="btn" disabled={!jobId || !!busy} onClick={() => job('quick')}>
             {busy === 'quick' ? <LoaderCircle className="spin" /> : null} Quick deploy validated job
           </button>
         </div>

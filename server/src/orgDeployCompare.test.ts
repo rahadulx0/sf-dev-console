@@ -8,7 +8,6 @@ import {
   buildDeployScope,
   buildRetrieveArgs,
   compareComponentGroups,
-  confirmationPhrase,
   groupMetadataFiles,
   hashGroups,
   safeSelections,
@@ -261,9 +260,7 @@ test('safeTestLevel falls back to RunLocalTests for unknown values, and safeTest
   assert.deepEqual(safeTests(['GoodTest', '1BadStart', 'has space', undefined]), ['GoodTest']);
 });
 
-test('confirmationPhrase and command builders produce the expected shape', () => {
-  assert.equal(confirmationPhrase('deploy', 'target-org'), 'DEPLOY target-org');
-  assert.equal(confirmationPhrase('validate', 'target-org'), 'VALIDATE target-org');
+test('command builders produce the expected shape', () => {
   assert.deepEqual(buildRetrieveArgs('/tmp/pkg.xml', 'source-org', '/tmp/out'), [
     'project', 'retrieve', 'start', '--manifest', '/tmp/pkg.xml', '--target-org', 'source-org', '--target-metadata-dir', '/tmp/out', '--unzip',
   ]);

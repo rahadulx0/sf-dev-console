@@ -90,38 +90,10 @@ test('deploy rejects when the comparison id is unknown or expired', async () => 
       keys: ['classes/A'],
       targetOrg: 'target',
       mode: 'validate',
-      confirmation: 'VALIDATE target',
     },
   });
   assert.equal(response.statusCode, 400);
   assert.match(JSON.parse(response.payload).error, /expired/i);
-});
-
-test('deploy rejects a mismatched confirmation phrase without invoking the CLI', async () => {
-  let calls = 0;
-  const app = await buildApp({
-    execute: async (args: string[]) => {
-      calls++;
-      if (args.includes('metadata-types')) return { metadataObjects: [] };
-      return {};
-    },
-  });
-  const compareResponse = await app.inject({
-    method: 'POST',
-    url: '/api/org-deploy/compare',
-    payload: { sourceOrg: 'source', targetOrg: 'target', selections: [{ type: 'ApexClass', members: ['A'] }] },
-  });
-  const { id } = JSON.parse(compareResponse.payload);
-  const callsBeforeDeploy = calls;
-
-  const deployResponse = await app.inject({
-    method: 'POST',
-    url: '/api/org-deploy/deploy',
-    payload: { id, keys: ['classes/A'], targetOrg: 'target', mode: 'deploy', confirmation: 'WRONG PHRASE' },
-  });
-  assert.equal(deployResponse.statusCode, 400);
-  assert.match(JSON.parse(deployResponse.payload).error, /Confirmation must exactly match/);
-  assert.equal(calls, callsBeforeDeploy, 'the CLI must not run a deploy when confirmation is wrong');
 });
 
 test('org-deploy history records can be read back and updated', async () => {

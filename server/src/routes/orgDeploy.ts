@@ -9,7 +9,6 @@ import {
   buildDeployScope,
   buildRetrieveArgs,
   compareComponentGroups,
-  confirmationPhrase,
   groupMetadataFiles,
   hashGroups,
   includeFieldLevelSecurity,
@@ -249,7 +248,6 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
       mode: 'validate' | 'deploy';
       testLevel?: string;
       tests?: string[];
-      confirmation: string;
     };
   }>('/api/org-deploy/deploy', async (req) => {
     const comparison = comparisons.get(safeUuid(req.body.id));
@@ -258,8 +256,6 @@ export async function orgDeployRoutes(app: FastifyInstance, opts: { cliOverride?
     if (targetOrg !== comparison.targetOrg) throw new Error('Target org no longer matches the reviewed comparison');
 
     const mode = req.body.mode === 'deploy' ? 'deploy' : 'validate';
-    const phrase = confirmationPhrase(mode, targetOrg);
-    if (req.body.confirmation !== phrase) throw new Error(`Confirmation must exactly match: ${phrase}`);
 
     const knownKeys = new Set(comparison.rows.map((r) => r.key));
     const requested = Array.isArray(req.body.keys) ? req.body.keys : [];

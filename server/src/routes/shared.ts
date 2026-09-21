@@ -1,10 +1,9 @@
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { CliRunner } from '../cli/CliRunner.js';
 import type { SfOrg } from '../types.js';
 
-export const cli = new CliRunner();
+export { cli, readFast, sfApi, authProvider, fastPathEnabled } from '../sf/runtime.js';
 
 /** Cache lifetimes for read-only CLI commands, in milliseconds. */
 export const ttl = {
@@ -16,6 +15,22 @@ export const ttl = {
   metadataComponents: 120_000,
   objects: 300_000,
   describe: 300_000,
+} as const;
+
+/**
+ * How long a value stays servable past its TTL while a refresh runs behind the response.
+ *
+ * Generous windows are deliberate. Org metadata changes on the timescale of a developer
+ * editing it, so showing a two-minute-old component list instantly and correcting it a moment
+ * later is a better trade than making every navigation wait on the network.
+ */
+export const stale = {
+  limits: 60_000,
+  packages: 600_000,
+  metadataTypes: 24 * 60 * 60_000,
+  metadataComponents: 600_000,
+  objects: 24 * 60 * 60_000,
+  describe: 24 * 60 * 60_000,
 } as const;
 
 /**

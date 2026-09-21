@@ -5,7 +5,8 @@ import { randomUUID } from 'node:crypto';
 import { workspace } from '../state/store.js';
 import { buildManifest } from '../manifest.js';
 import type { Selection } from '../types.js';
-import { cli, readSignal, safeOrg, safeType, ttl } from './shared.js';
+import { cached } from '../sf/cache.js';
+import { cli, readFast, readSignal, safeOrg, safeType, sfApi, stale, ttl } from './shared.js';
 
 export async function metadataRoutes(app: FastifyInstance) {
   app.get<{ Params: { org: string } }>('/api/orgs/:org/flows', async (request, reply) => {
@@ -15,13 +16,15 @@ export async function metadataRoutes(app: FastifyInstance) {
       'FROM Flow',
       'ORDER BY Definition.DeveloperName, VersionNumber DESC',
     ].join(' ');
-    const result = await cli.execute(
-      ['data', 'query', '--query', query, '--target-org', org, '--use-tooling-api'],
-      {
-        timeoutMs: 180_000,
-        signal: readSignal(request, reply),
-        cache: { key: `orgs:${org}:flow-versions`, ttlMs: ttl.metadataComponents },
-      },
+    const signal = readSignal(request, reply);
+    const result = await cached(
+      `orgs:${org}:flow-versions`,
+      { ttlMs: ttl.metadataComponents, staleMs: stale.metadataComponents },
+      () =>
+        readFast(
+          () => sfApi.query(org, query, { tooling: true, signal, timeoutMs: 180_000 }),
+          () => cli.execute(['data', 'query', '--query', query, '--target-org', org, '--use-tooling-api'], { timeoutMs: 180_000, signal }),
+        ),
     );
     return {
       flows: (result.records || [])
@@ -40,11 +43,16 @@ export async function metadataRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { org: string } }>('/api/orgs/:org/metadata/types', async (request, reply) => {
     const org = safeOrg(request.params.org);
-    const result = await cli.execute(['org', 'list', 'metadata-types', '--target-org', org], {
-      timeoutMs: 180_000,
-      signal: readSignal(request, reply),
-      cache: { key: `orgs:${org}:metadata-types`, ttlMs: ttl.metadataTypes },
-    });
+    const signal = readSignal(request, reply);
+    const result = await cached(
+      `orgs:${org}:metadata-types`,
+      { ttlMs: ttl.metadataTypes, staleMs: stale.metadataTypes, persist: true },
+      () =>
+        readFast(
+          () => sfApi.describeMetadata(org, { signal }),
+          () => cli.execute(['org', 'list', 'metadata-types', '--target-org', org], { timeoutMs: 180_000, signal }),
+        ),
+    );
     return {
       types: (result.metadataObjects || result || [])
         .map((m: any) => ({ name: m.xmlName || m.name, directoryName: m.directoryName, suffix: m.suffix }))
@@ -52,14 +60,24 @@ export async function metadataRoutes(app: FastifyInstance) {
     };
   });
 
+  /*
+   * The slowest read in the app: `sf org list metadata --metadata-type ApexClass` measured at
+   * 11.9 seconds. The Metadata API's listMetadata call returns the identical component set —
+   * 2,455 entries from both paths — in about 3 seconds, and a cached copy answers instantly.
+   */
   app.get<{ Params: { org: string; type: string } }>('/api/orgs/:org/metadata/:type', async (request, reply) => {
     const org = safeOrg(request.params.org);
     const type = safeType(request.params.type);
-    const result = await cli.execute(['org', 'list', 'metadata', '--metadata-type', type, '--target-org', org], {
-      timeoutMs: 180_000,
-      signal: readSignal(request, reply),
-      cache: { key: `orgs:${org}:metadata:${type}`, ttlMs: ttl.metadataComponents },
-    });
+    const signal = readSignal(request, reply);
+    const result = await cached(
+      `orgs:${org}:metadata:${type}`,
+      { ttlMs: ttl.metadataComponents, staleMs: stale.metadataComponents, persist: true },
+      () =>
+        readFast(
+          () => sfApi.listMetadata(org, type, { signal }),
+          () => cli.execute(['org', 'list', 'metadata', '--metadata-type', type, '--target-org', org], { timeoutMs: 180_000, signal }),
+        ),
+    );
     return {
       components: (Array.isArray(result) ? result : result.metadata || [])
         .map((m: any) => ({

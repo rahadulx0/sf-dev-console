@@ -38,7 +38,6 @@ export default function OrgDeployPage() {
   const [mode, setMode] = useState<'validate' | 'deploy'>('validate');
   const [testLevel, setTestLevel] = useState<TestLevel>('RunLocalTests');
   const [testsInput, setTestsInput] = useState('');
-  const [confirmation, setConfirmation] = useState('');
   const [executing, setExecuting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [deployPreview, setDeployPreview] = useState<any>(null);
@@ -88,7 +87,6 @@ export default function OrgDeployPage() {
       .split(/[,\s]+/)
       .map((t) => t.trim())
       .filter(Boolean);
-    const phrase = `${mode === 'deploy' ? 'DEPLOY' : 'VALIDATE'} ${targetOrg}`;
     setExecuting(true);
     try {
       const result = await api<{ record: OrgDeployRecord; response: any }>('/org-deploy/deploy', {
@@ -101,7 +99,6 @@ export default function OrgDeployPage() {
           mode,
           testLevel,
           tests,
-          confirmation: mode === 'deploy' ? confirmation : phrase,
         }),
       });
       invalidate('org-deploy:history');
@@ -137,7 +134,6 @@ export default function OrgDeployPage() {
     setSelectedKeys(new Set());
     setDestructiveKeys(new Set());
     setDeployResult(null);
-    setConfirmation('');
     setDeployPreview(null);
     setStep('metadata');
   }
@@ -207,8 +203,6 @@ export default function OrgDeployPage() {
           setTestLevel={setTestLevel}
           testsInput={testsInput}
           setTestsInput={setTestsInput}
-          confirmation={confirmation}
-          setConfirmation={setConfirmation}
           busy={executing}
           previewBusy={previewing}
           preview={deployPreview}

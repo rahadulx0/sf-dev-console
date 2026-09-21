@@ -12,6 +12,8 @@ export interface ExecuteOptions {
   cwd?: string;
   /** Aborts the command and kills the child process; used when a client disconnects. */
   signal?: AbortSignal;
+  /** Extra environment for this invocation only, merged over the shared CLI environment. */
+  env?: NodeJS.ProcessEnv;
   /**
    * Enables in-flight de-duplication and result caching for read-only commands.
    * Never set this for a command that changes org or local state.
@@ -33,11 +35,49 @@ const SF_EXECUTABLE = 'sf';
  * Node warns whenever both are present, polluting command stderr and making real Apex errors
  * unreadable. JSON CLI calls don't need terminal coloring, so pass neither variable through.
  */
-function cliEnvironment(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, SF_DISABLE_TELEMETRY: 'true' };
+function buildBaseEnvironment(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    SF_DISABLE_TELEMETRY: 'true',
+    // Skipping the CLI's own update and autocomplete bookkeeping removes work from every
+    // invocation, and each one already costs a full Node boot.
+    SF_AUTOUPDATE_DISABLE: 'true',
+    SF_SKIP_NEW_VERSION_CHECK: 'true',
+    SF_SKIP_VERSION_CHECK: 'true',
+  };
   delete env.FORCE_COLOR;
   delete env.NO_COLOR;
   return env;
+}
+
+/** Computed once: rebuilding it per invocation copied the whole environment needlessly. */
+const BASE_ENV = buildBaseEnvironment();
+
+/**
+ * Parses the CLI's JSON result, tolerating anything printed ahead of it.
+ *
+ * Some commands write a human-facing line to stdout even under `--json`: `apex run` reading
+ * from stdin announces "Start typing Apex code…" before its result, which made a strict parse
+ * fail and reported that prompt back to the user as the error. Parsing from the first brace
+ * recovers the actual payload. Returns `undefined` when there is no JSON at all.
+ */
+export function parseCliJson(stdout: string): any {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    // Fall through to locating the payload inside the surrounding output.
+  }
+  const start = stdout.indexOf('{');
+  if (start < 0) return undefined;
+  try {
+    return JSON.parse(stdout.slice(start));
+  } catch {
+    return undefined;
+  }
+}
+
+function cliEnvironment(extra?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return extra ? { ...BASE_ENV, ...extra } : BASE_ENV;
 }
 
 export class CliRunner {
@@ -109,18 +149,25 @@ export class CliRunner {
       const child = spawn(SF_EXECUTABLE, [...args, '--json'], {
         shell: false,
         cwd: options.cwd,
-        env: cliEnvironment(),
+        env: cliEnvironment(options.env),
       });
-      let stdout = '';
-      let stderr = '';
+      /*
+       * Chunks are collected as Buffers and decoded once at the end. Appending
+       * `data.toString()` per chunk both re-copies a growing string and can split a
+       * multi-byte UTF-8 character across a chunk boundary, corrupting it — a real risk
+       * here, where a describe response runs to megabytes.
+       */
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+      const readStderr = () => Buffer.concat(stderrChunks).toString('utf8');
       let settled = false;
       const timer = setTimeout(() => {
         child.kill('SIGTERM');
-        fail(new CliError('Salesforce CLI command timed out', stderr));
+        fail(new CliError('Salesforce CLI command timed out', readStderr()));
       }, timeoutMs);
       const onAbort = () => {
         child.kill('SIGTERM');
-        fail(new CliError('Salesforce CLI command cancelled', stderr));
+        fail(new CliError('Salesforce CLI command cancelled', readStderr()));
       };
       const cleanup = () => {
         clearTimeout(timer);
@@ -140,8 +187,8 @@ export class CliRunner {
         options.signal.addEventListener('abort', onAbort, { once: true });
       }
       child.on('error', (error) => fail(new CliError(error.message)));
-      child.stdout.on('data', (data) => { stdout += data; });
-      child.stderr.on('data', (data) => { stderr += data; });
+      child.stdout.on('data', (data: Buffer) => { stdoutChunks.push(data); });
+      child.stderr.on('data', (data: Buffer) => { stderrChunks.push(data); });
       if (options.stdin !== undefined) {
         child.stdin.write(options.stdin);
         child.stdin.end();
@@ -150,10 +197,10 @@ export class CliRunner {
         if (settled) return;
         settled = true;
         cleanup();
-        let parsed: any;
-        try {
-          parsed = JSON.parse(stdout);
-        } catch {
+        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+        const stderr = readStderr();
+        const parsed = parseCliJson(stdout);
+        if (!parsed) {
           return reject(new CliError(stderr.trim() || stdout.trim() || 'Invalid response from Salesforce CLI', stderr, code));
         }
         if (code !== 0 || parsed.status) {

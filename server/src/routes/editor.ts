@@ -5,7 +5,23 @@ import { randomUUID } from 'node:crypto';
 import { buildManifest } from '../manifest.js';
 import { buildRetrieveArgs } from '../orgDeployCompare.js';
 import { workspace } from '../state/store.js';
-import { EDITOR_TYPES, cli, safeComponentFile, safeComponentName, safeEditorType, safeNewComponentName, safeOrg, ttl } from './shared.js';
+import { shouldFallBack } from '../sf/api.js';
+import { fetchComponentSource } from '../sf/editorSource.js';
+import { cached, invalidateCache } from '../sf/cache.js';
+import {
+  EDITOR_TYPES,
+  cli,
+  fastPathEnabled,
+  readFast,
+  safeComponentFile,
+  safeComponentName,
+  safeEditorType,
+  safeNewComponentName,
+  safeOrg,
+  sfApi,
+  stale,
+  ttl,
+} from './shared.js';
 
 const DEFAULT_API_VERSION = '65.0';
 
@@ -145,7 +161,38 @@ async function resolveComponentRoot(baseDir: string): Promise<string> {
   return current;
 }
 
+/**
+ * Materializes the component's files from the Tooling API into the exact layout a Metadata API
+ * retrieve produces, so saving — which deploys this directory — is unchanged.
+ *
+ * This replaces a manifest write, a CLI process, a Metadata API retrieve and an unzip with a
+ * pair of queries: roughly 300ms against ten seconds or more.
+ */
+async function writeComponentFromApi(org: string, type: string, fullName: string, baseDir: string): Promise<string> {
+  const files = await fetchComponentSource(sfApi, org, type, fullName, DEFAULT_API_VERSION);
+  const root = newComponentRoot(baseDir);
+  // Start clean: a stale file left in this directory would be deployed by the next save.
+  await rm(root, { recursive: true, force: true });
+  await mkdir(root, { recursive: true });
+  for (const file of files) {
+    // Paths for bundles come from the org, so they are resolved against the root, not trusted.
+    const target = safeComponentFile(root, file.relativePath);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, file.content, 'utf8');
+  }
+  await writeFile(path.join(root, 'package.xml'), buildManifest([{ type, members: [fullName] }], DEFAULT_API_VERSION));
+  return root;
+}
+
 async function retrieveComponent(org: string, type: string, fullName: string, baseDir: string): Promise<string> {
+  if (fastPathEnabled) {
+    try {
+      return await writeComponentFromApi(org, type, fullName, baseDir);
+    } catch (error) {
+      // Managed source, an unsupported type, or no token: the CLI retrieve still handles it.
+      if (!shouldFallBack(error)) throw error;
+    }
+  }
   const manifestDir = path.join(baseDir, '_manifest');
   await mkdir(manifestDir, { recursive: true });
   const manifestPath = path.join(manifestDir, 'package.xml');
@@ -162,13 +209,25 @@ async function ensureComponentRoot(org: string, type: string, fullName: string, 
   return retrieveComponent(org, type, fullName, baseDir);
 }
 
+/** Shares its cache key with the metadata listing route, so the two never fetch the same list twice. */
 async function componentExists(org: string, type: string, fullName: string): Promise<boolean> {
-  const result = await cli.execute(['org', 'list', 'metadata', '--metadata-type', type, '--target-org', org], {
-    timeoutMs: 60_000,
-    cache: { key: `orgs:${org}:metadata:${type}`, ttlMs: ttl.metadataComponents },
-  });
-  const list = Array.isArray(result) ? result : result.metadata || [];
+  const result = await cached(
+    `orgs:${org}:metadata:${type}`,
+    { ttlMs: ttl.metadataComponents, staleMs: stale.metadataComponents, persist: true },
+    () =>
+      readFast(
+        () => sfApi.listMetadata(org, type),
+        () => cli.execute(['org', 'list', 'metadata', '--metadata-type', type, '--target-org', org], { timeoutMs: 180_000 }),
+      ),
+  );
+  const list = Array.isArray(result) ? result : (result as any).metadata || [];
   return list.some((m: any) => m.fullName === fullName);
+}
+
+/** Drops both cache layers for a type whose component list just changed. */
+function invalidateComponents(org: string, type: string) {
+  cli.invalidate(`orgs:${org}:metadata:${type}`);
+  invalidateCache(`orgs:${org}:metadata:${type}`);
 }
 
 async function deployMetadataDir(org: string, dir: string) {
@@ -259,7 +318,7 @@ export async function editorRoutes(app: FastifyInstance) {
       if (!(await exists(filePath))) throw new Error('File not found. Open the component again before saving.');
       await writeFile(filePath, req.body.content, 'utf8');
       const result = await deployMetadataDir(org, root);
-      cli.invalidate(`orgs:${org}:metadata:${type}`);
+      invalidateComponents(org, type);
       return result;
     },
   );
@@ -277,7 +336,7 @@ export async function editorRoutes(app: FastifyInstance) {
       await writeSkeleton(root, type, fullName, req.body.sobject);
       await writeFile(path.join(root, 'package.xml'), buildManifest([{ type, members: [fullName] }], DEFAULT_API_VERSION));
       const deploy = await deployMetadataDir(org, root);
-      cli.invalidate(`orgs:${org}:metadata:${type}`);
+      invalidateComponents(org, type);
       const files = await listComponentFiles(root, type, fullName);
       return { type, fullName, files, mainFile: mainFileOf(type, fullName, files), deploy };
     },
@@ -338,7 +397,7 @@ export async function editorRoutes(app: FastifyInstance) {
         error: error instanceof Error ? error.message : String(error),
       }));
       await rm(oldBase, { recursive: true, force: true }).catch(() => {});
-      cli.invalidate(`orgs:${org}:metadata:${type}`);
+      invalidateComponents(org, type);
 
       const files = await listComponentFiles(newRoot, type, newName);
       return { type, fullName: newName, files, mainFile: mainFileOf(type, newName, files), created, deleted };
@@ -355,7 +414,7 @@ export async function editorRoutes(app: FastifyInstance) {
       if (req.body.confirmation !== phrase) throw new Error(`Confirmation must exactly match: ${phrase}`);
       const result = await destructiveDeploy(org, type, fullName);
       await rm(componentBaseDir(org, type, fullName), { recursive: true, force: true }).catch(() => {});
-      cli.invalidate(`orgs:${org}:metadata:${type}`);
+      invalidateComponents(org, type);
       return result;
     },
   );
